@@ -4,7 +4,7 @@
 
 :root {
     --color-primary: #1d1d1f;
-    --color-secondary: #6e6e73;
+    --color-secondary: #86868b;
     --color-background: #ffffff;
     --color-surface: #f5f5f7;
     --color-border: #e8e8ed;
@@ -109,7 +109,7 @@ section {
         radial-gradient(ellipse 70% 45% at 50% -5%,
             rgba(0, 122, 255, 0.08) 0%,
             rgba(255, 255, 255, 0.0) 65%),
-        linear-gradient(180deg, #ffffff 0%, #fbfbfc 100%);
+        
 }
 
 .hero-content {
@@ -148,7 +148,7 @@ section {
 }
 
 .hero-subtitle {
-    font-size: clamp(18px, 2.1vw, 26px);
+    font-size: clamp(30px, 2.1vw, 26px);
     color: var(--color-secondary);
     margin-bottom: var(--spacing-2xl);
     line-height: 1.5;
@@ -441,7 +441,7 @@ section {
     align-items: center;
     justify-content: center;
     padding: 14px 28px;
-    border-radius: 980px;
+    border-radius: 40px;
     font-size: var(--font-size-base);
     font-weight: 500;
     cursor: pointer;
@@ -458,8 +458,8 @@ section {
 }
 
 .button-primary:hover {
-    opacity: 0.86;
-    transform: translateY(-1px);
+    opacity: 0.9;
+
     box-shadow: var(--shadow-md);
     color: #ffffff;
 }
@@ -605,4 +605,69 @@ section {
     .feature-card-dark {
         padding: 18px 18px 12px;
     }
+}
+
+
+.price-pill {
+    /* НАСТРОЙКА ВЫТЯНУТОСТИ: меняйте эти значения для подгона */
+    --stretch-left: 30px;    /* Отступ от текста до левого края плашки */
+    --stretch-right: 25px;   /* Отступ от черной кнопки до правого края плашки */
+    --gap-center: 80px;      /* Расстояние между текстом и кнопкой по центру */
+
+    display: inline-flex;
+    align-items: center;
+    background-color: #f1f1f4; 
+    border-radius: 980px;
+    
+    /* Вертикальные отступы остаются 10px, а горизонтальные берутся из переменных выше */
+    padding: 10px var(--stretch-right) 10px var(--stretch-left); 
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+.price-pill-label {
+    font-size: 21px; 
+    font-weight: 500;
+    color: #1d1d1f; 
+    letter-spacing: -0.022em;
+    
+    /* Расстояние по центру между элементами берется из переменной */
+    margin-right: var(--gap-center); 
+}
+
+.price-pill-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    
+    /* ИСПРАВЛЕНО: Полная синхронизация параметров градиента с .hero-gradient */
+    background: linear-gradient(135deg,
+        #ff6b6b 0%, #ff9f43 14%, #ffd93d 28%,
+        #6bcb77 43%, #4d96ff 57%, #c77dff 72%,
+        #ff6b6b 86%, #ff9f43 100%
+    );
+    background-size: 280% 280%;
+    /* ИСПРАВЛЕНО: Подключена та же самая анимация rainbowFlow на 8 секунд */
+    animation: rainbowFlow 8s ease-in-out infinite;
+
+    color: #ffffff;
+    font-size: 17px; 
+    font-weight: 400;
+    padding: 12px 30px; 
+    border-radius: 980px;
+    border: none;
+    cursor: pointer;
+    transition: opacity 0.2s ease; 
+    text-decoration: none;
+}
+
+
+
+/* 
+  ВАЖНО: Если в вашем коде уже написан @keyframes rainbowFlow, 
+  то код ниже можно удалить, чтобы он не дублировался.
+*/
+@keyframes rainbowFlow {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
 }

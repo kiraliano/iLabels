@@ -1,69 +1,284 @@
-# iLabels — Landing Page
+# iLabels - Landing Page
 
-After Effects plugin for label-based layer selection.
+Apple-style premium landing page for the iLabels After Effects plugin.
 
-## 📁 Structure
+## 📁 Project Structure
 
 ```
-├── index.html        — Main page
-├── styles.css        — All styles
-├── script.js         — Animations and interactions
-├── video/
-│   ├── select-color.mp4
-│   ├── double-click-reset.mp4
-│   └── nothing-selected.mp4
-├── _headers          — Cloudflare Pages HTTP headers
-├── _redirects        — Cloudflare Pages redirects
-└── .gitignore
+ilabels/
+├── index.html          # Main HTML structure (semantic markup)
+├── styles.css          # All styling and animations
+├── script.js           # JavaScript for interactivity
+└── README.md           # This file
 ```
 
-## 🚀 Deploy to Cloudflare Pages (step by step)
+## 🎯 Quick Start
 
-### Step 1 — Push to GitHub
+### 1. Local Testing
 
-```bash
-# 1. Create a new repo on github.com (name it: ilabels-landing)
+Open `index.html` directly in your browser:
+- Right-click → Open with → Browser
+- Or drag `index.html` into your browser
 
-# 2. In this folder, open terminal and run:
-git init
-git add .
-git commit -m "initial: iLabels landing page"
-git branch -M main
-git remote add origin https://github.com/YOUR_USERNAME/ilabels-landing.git
-git push -u origin main
+### 2. Deploy to Cloudflare Pages
+
+**Prerequisites:**
+- GitHub account
+- Cloudflare account (free)
+
+**Steps:**
+
+1. **Create GitHub Repository:**
+   ```bash
+   # Initialize git in this folder
+   git init
+   git add .
+   git commit -m "Initial commit: iLabels landing page"
+   git branch -M main
+   git remote add origin https://github.com/YOUR_USERNAME/ilabels.git
+   git push -u origin main
+   ```
+
+2. **Connect to Cloudflare Pages:**
+   - Go to https://pages.cloudflare.com/
+   - Click "Create a project"
+   - Select your GitHub repository
+   - Build settings:
+     - **Framework preset:** None
+     - **Build command:** (leave empty)
+     - **Build output directory:** (leave empty)
+   - Click "Save and Deploy"
+
+3. **Done!** Your site will be live at `ilabels.pages.dev`
+
+## 🎨 Customization Guide
+
+### Colors (Main Changes)
+
+Edit variables in `styles.css` (lines 7-14):
+
+```css
+:root {
+    --color-primary: #1d1d1f;        /* Main text */
+    --color-secondary: #6e6e73;      /* Descriptions */
+    --color-background: #ffffff;     /* Background */
+    --color-border: #f5f5f7;         /* Borders/dividers */
+    --color-accent: #007aff;         /* Optional accent */
+}
 ```
 
-### Step 2 — Connect Cloudflare Pages
+Change any color value and it updates everywhere on the site.
 
-1. Go to **https://dash.cloudflare.com/**
-2. Left sidebar → **Workers & Pages** → **Create application**
-3. Tab: **Pages** → **Connect to Git**
-4. Choose GitHub → select repo **ilabels-landing**
-5. Build settings:
-   - **Framework preset:** None
-   - **Build command:** *(leave empty)*
-   - **Build output directory:** *(leave empty / put `.`)*
-6. Click **Save and Deploy**
+### Typography Sizes
 
-✅ Site goes live at: `ilabels-landing.pages.dev`
+Edit in `styles.css` (lines 17-28) to adjust how big headlines are:
 
-### Step 3 — Custom domain (optional)
+```css
+--font-size-7xl: 64px;    /* Hero title */
+--font-size-5xl: 48px;    /* Section titles */
+--font-size-3xl: 28px;    /* Subheadings */
+--font-size-xl: 20px;     /* Card titles */
+```
 
-In Cloudflare Pages → your project → **Custom domains** → Add domain.
+### Spacing & Padding
+
+Edit in `styles.css` (lines 30-38) to increase/decrease whitespace:
+
+```css
+--spacing-5xl: 64px;      /* Large section spacing */
+--spacing-3xl: 48px;      /* Medium spacing */
+--spacing-lg: 24px;       /* Normal spacing */
+```
+
+### Text Content
+
+Edit in `index.html`:
+
+- **Hero headline:** Line 31
+- **Hero subtitle:** Line 36
+- **Button labels:** Lines 41-44
+- **Feature cards:** Lines 142-156
+- **All other text:** Search for section comments (e.g., `<!-- SECTION 1: HERO -->`)
+
+### Images & Mockups
+
+The After Effects mockup is SVG (lines 57-107 in `index.html`).
+
+To customize layer names, colors, or structure - edit the SVG coordinates and text:
+
+```html
+<!-- Example: Change layer name -->
+<text x="16" y="63" class="layer-name">Background</text>
+<!-- Change "Background" to your desired name -->
+
+<!-- Example: Change label color -->
+<circle cx="272" cy="61" r="6" class="label-chip red"/>
+<!-- Change "red" to "teal" or "green" -->
+```
+
+### Adding New Sections
+
+1. Copy the structure in `index.html`
+2. Add `<section>` with unique ID
+3. Create CSS styles in `styles.css` for that section
+4. Update `script.js` if you need interactivity
+
+### Buttons & Links
+
+**Change link destinations:**
+```html
+<a href="#demo" class="button button-primary">
+    Try the demo
+</a>
+<!-- Change "#demo" to any URL or section ID -->
+```
+
+**Add new buttons:**
+```html
+<a href="https://your-link.com" class="button button-primary">
+    Button Text
+</a>
+```
+
+Use `button-primary` for main CTA or `button-secondary` for alternatives.
+
+## 📱 Responsive Design
+
+The site is fully responsive:
+- **Desktop:** 1200px max width, side-by-side layouts
+- **Tablet:** (768px) Single column, adjusted spacing
+- **Mobile:** (480px) Optimized typography and touch targets
+
+Test with browser dev tools: **F12 → Click device icon** to see mobile view.
+
+## 🚀 Advanced Customization
+
+### Add Custom Font
+
+Edit `index.html` head section:
+```html
+<link href="https://fonts.googleapis.com/css2?family=YOUR_FONT:wght@400;600;700&display=swap" rel="stylesheet">
+```
+
+Then update `styles.css`:
+```css
+body {
+    font-family: 'YOUR_FONT', sans-serif;
+}
+```
+
+### Add Animations
+
+Edit `styles.css` to create new animations:
+```css
+@keyframes slideInLeft {
+    from {
+        opacity: 0;
+        transform: translateX(-30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.slide-in-left {
+    animation: slideInLeft 0.8s ease-out forwards;
+}
+```
+
+Apply to elements:
+```html
+<div class="slide-in-left">Content here</div>
+```
+
+### Add Interactivity
+
+Edit `script.js` to add new features. Example - scroll animation trigger:
+
+```javascript
+function onScroll() {
+    const scrollTop = window.scrollY;
+    
+    // Change background based on scroll
+    if (scrollTop > 300) {
+        document.body.style.backgroundColor = '#f5f5f7';
+    } else {
+        document.body.style.backgroundColor = '#ffffff';
+    }
+}
+
+window.addEventListener('scroll', onScroll);
+```
+
+## 🔍 File Explanations
+
+### index.html
+- **Purpose:** Structure and semantic HTML
+- **Edit for:** Text content, page structure, element layout
+- **Comment style:** HTML comments explain each section
+- **Key elements:** `<section>`, `<h1>`, `<p>`, `<a>`
+
+### styles.css
+- **Purpose:** All visual styling, colors, animations, responsive design
+- **Edit for:** Colors, fonts, spacing, borders, shadows, breakpoints
+- **Comment style:** CSS comments explain each section
+- **Key sections:** `:root` variables, typography, layout, sections
+
+### script.js
+- **Purpose:** Interactivity, smooth scrolling, animations on scroll
+- **Edit for:** Click handlers, scroll effects, custom behavior
+- **Comment style:** JavaScript comments explain each function
+- **Key functions:** `initializeScrollBehavior()`, `initializeAnimations()`
+
+## 🐛 Troubleshooting
+
+**Links don't scroll smoothly:**
+- Check `script.js` is loaded (console should say "initialized successfully")
+- Ensure anchor links use matching IDs in `index.html`
+
+**Colors don't match:**
+- Clear browser cache: `Ctrl+Shift+Delete` (Windows) or `Cmd+Shift+Delete` (Mac)
+- Or hard refresh: `Ctrl+F5` (Windows) or `Cmd+Shift+R` (Mac)
+
+**Cloudflare page blank:**
+- Check GitHub repo has all three files: `index.html`, `styles.css`, `script.js`
+- Verify build settings are empty (no build command needed)
+- Check "Pages" tab in Cloudflare for deployment logs
+
+**Mobile layout broken:**
+- Check viewport meta tag in `index.html`: `<meta name="viewport" content="width=device-width, initial-scale=1.0">`
+- Test with Chrome DevTools mobile view
+
+## 📚 Documentation Links
+
+- [Cloudflare Pages Docs](https://developers.cloudflare.com/pages/)
+- [CSS Variables Reference](https://developer.mozilla.org/en-US/docs/Web/CSS/--*)
+- [HTML Semantic Elements](https://www.w3schools.com/html/html5_semantic_elements.asp)
+- [GitHub Pages vs Cloudflare Pages](https://blog.logrocket.com/github-pages-vs-cloudflare-pages/)
+
+## 📝 License
+
+Free to use and modify for personal and commercial projects.
+
+## 💡 Tips
+
+1. **Keep it simple** - Edit one thing at a time, test in browser
+2. **Use browser DevTools** - F12 to inspect elements and debug CSS
+3. **Mobile first** - Always test on mobile, tablets, and desktop
+4. **Animations sparingly** - Less motion = more premium feeling
+5. **Colors** - Stick to 3-4 colors max for professional look
+
+## ✅ Checklist Before Launch
+
+- [ ] All text content is correct and proofread
+- [ ] Links point to correct destinations
+- [ ] Mobile view looks good (test on real device if possible)
+- [ ] No console errors (F12 → Console tab)
+- [ ] Site loads in under 3 seconds
+- [ ] All buttons are clickable
+- [ ] No broken images or SVGs
 
 ---
 
-## 🔄 Update the site
-
-Just push to GitHub — Cloudflare auto-deploys in ~30 seconds:
-
-```bash
-git add .
-git commit -m "update: description of what changed"
-git push
-```
-
-## ✅ Cloudflare Pages works in Russia
-
-Cloudflare is a CDN network, not blocked in RF.
-Free plan includes: unlimited requests, 500 deploys/month, HTTPS by default.
+Made with Apple-style minimalism for maximum impact. 🍎
