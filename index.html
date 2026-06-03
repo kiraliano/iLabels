@@ -18,9 +18,7 @@
                 <h1 class="hero-title fade-in-up">
                     Stop selecting .
                     <br>
-                    <span class="hero-gradient">
-                        Start controlling .
-                    </span>
+                    <span class="hero-gradient">Start controlling .</span>
                 </h1>
 
                 <p class="hero-subtitle fade-in-up" style="--delay: 0.12s">
@@ -28,13 +26,11 @@
                 </p>
 
                 <div class="price-pill fade-in-up" style="--delay: 0.24s">
-    <span class="price-pill-label">Starting from $10</span>
-    <a href="#" class="price-pill-btn">Buy</a>
-</div>
+                    <span class="price-pill-label">Starting from $10</span>
+                    <button class="price-pill-btn" id="buyBtn">Buy</button>
+                </div>
 
-                
-                    
-               
+            </div>
         </div>
     </section>
 
@@ -43,70 +39,45 @@
 
             <div class="feature-row fade-in-up">
                 <div class="feature-row-text">
-                    <div class="feature-row-icon">
-
-
-                        
-                    </div>
                     <h3 class="feature-row-title">Click a color</h3>
-                    <p class="feature-row-description">
-                        Apply label colors instantly. No menus, no friction.
-                    </p>
-                </div>
-                <div class="feature-row-visual">
-                    <div class="feature-card-dark">
-    <video class="demo-video" autoplay muted loop playsinline>
-        <source src="video/select-color.mp4" type="video/mp4">
-    </video>
-    
-</div>
-                </div>
-            </div>
-
-
-
-            <div class="feature-row fade-in-up">
-                <div class="feature-row-text">
-                    <div class="feature-row-icon">
-                        
-                    </div>
-                    <h3 class="feature-row-title">Double click to reset</h3>
-                    <p class="feature-row-description">
-                       Back to default. 
-                    </p>
-                </div>
-                <div class="feature-row-visual">
-                    <div class="feature-card-dark">
-                       <video class="demo-video" autoplay muted loop playsinline>
-  <source src="./video/double-click-reset.mp4" type="video/mp4">
-</video>
-                        
-                    </div>
-                </div>
-            </div>
-
-            <div class="feature-row fade-in-up">
-                <div class="feature-row-text">
-                    <div class="feature-row-icon">
-                        
-                    </div>
-                    <h3 class="feature-row-title">Select by color
-</h3>
-                    <p class="feature-row-description">
-                        One click. Every matching layer. 
-                    </p>
+                    <p class="feature-row-description">Apply label colors instantly. No menus, no friction.</p>
                 </div>
                 <div class="feature-row-visual">
                     <div class="feature-card-dark">
                         <video class="demo-video" autoplay muted loop playsinline>
-  <source src="./video/nothing-selected.mp4" type="video/mp4">
-</video>
-                        
+                            <source src="video/select-color.mp4" type="video/mp4">
+                        </video>
                     </div>
                 </div>
             </div>
 
+            <div class="feature-row fade-in-up">
+                <div class="feature-row-text">
+                    <h3 class="feature-row-title">Double click to reset</h3>
+                    <p class="feature-row-description">Back to default.</p>
+                </div>
+                <div class="feature-row-visual">
+                    <div class="feature-card-dark">
+                        <video class="demo-video" autoplay muted loop playsinline>
+                            <source src="./video/double-click-reset.mp4" type="video/mp4">
+                        </video>
+                    </div>
+                </div>
+            </div>
 
+            <div class="feature-row fade-in-up">
+                <div class="feature-row-text">
+                    <h3 class="feature-row-title">Select by color</h3>
+                    <p class="feature-row-description">One click. Every matching layer.</p>
+                </div>
+                <div class="feature-row-visual">
+                    <div class="feature-card-dark">
+                        <video class="demo-video" autoplay muted loop playsinline>
+                            <source src="./video/nothing-selected.mp4" type="video/mp4">
+                        </video>
+                    </div>
+                </div>
+            </div>
 
         </div>
     </section>
@@ -115,22 +86,77 @@
         <div class="container">
             <div class="use-cases-header fade-in-up">
                 <h2 class="nothing-title">Nothing between you and your work .</h2>
-               
             </div>
         </div>
     </section>
 
     <footer class="footer">
         <div class="container">
-            
             <div class="footer-minimal fade-in-up" style="--delay: 0.1s">
                 <p class="footer-brand">iLabels. After Effects plugin.</p>
+                <nav class="footer-links">
+                    <a href="offer.html">Terms & Offer</a>
+                    <a href="privacy.html">Privacy</a>
+                    <a href="refund.html">Refunds</a>
+                    <a href="mailto:iosflowzy@gmail.com">Contact</a>
+                </nav>
                 <p class="footer-meta">© 2026. Designed with precision.</p>
             </div>
         </div>
     </footer>
 
 </div>
+
+<!-- ========== BUY MODAL ========== -->
+<div class="modal-overlay" id="modalOverlay">
+    <div class="modal">
+
+        <button class="modal-close" id="modalClose" aria-label="Close">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <path d="M1 1L13 13M13 1L1 13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+            </svg>
+        </button>
+
+        <div class="modal-tag">After Effects Plugin</div>
+        <h2 class="modal-title">iLabels</h2>
+        <div class="modal-price">$10</div>
+        <p class="modal-sub">One-time payment. Yours forever.</p>
+
+        <div class="modal-includes">
+            <div class="modal-include-item">
+                <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M2.5 7.5L5.5 10.5L12.5 3.5" stroke="#34C759" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Plugin file (.jsx) for After Effects
+            </div>
+            <div class="modal-include-item">
+                <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M2.5 7.5L5.5 10.5L12.5 3.5" stroke="#34C759" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Download link sent to your email
+            </div>
+            <div class="modal-include-item">
+                <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M2.5 7.5L5.5 10.5L12.5 3.5" stroke="#34C759" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Email support included
+            </div>
+        </div>
+
+        <div class="modal-divider"></div>
+
+        <a href="PLISIO_URL_HERE" class="modal-pay-btn" id="payBtn" target="_blank" rel="noopener">
+            Pay with Crypto
+        </a>
+
+        <p class="modal-note">
+            USDT, BTC, ETH and more — via Plisio.<br>
+            Download link arrives to your email after confirmation.
+        </p>
+
+        <p class="modal-legal">
+            By purchasing you agree to our
+            <a href="offer.html" target="_blank">Terms</a> and
+            <a href="refund.html" target="_blank">Refund Policy</a>.
+        </p>
+
+    </div>
+</div>
+
 <script src="script.js"></script>
 </body>
 </html>
