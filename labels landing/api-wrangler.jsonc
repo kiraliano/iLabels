@@ -13,7 +13,8 @@
 
   "vars": {
     "SITE_DOMAIN": "ilabels.iosflowzy.workers.dev",
-    "API_DOMAIN":  "ilabels-api.iosflowzy.workers.dev"
+    "API_DOMAIN":  "ilabels-api.iosflowzy.workers.dev",
+    "PLISIO_SUCCESS_URL": "ilabels.iosflowzy.workers.dev/success.html"
   },
 
   "observability": { "enabled": true }
