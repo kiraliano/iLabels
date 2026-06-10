@@ -1,13 +1,13 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "ilabels-api",
-  "main": "src/worker.js",
+  "main": "src/api-worker.js",
   "compatibility_date": "2026-06-01",
 
   "kv_namespaces": [
     {
       "binding": "KV",
-      "id": "REPLACE_WITH_YOUR_KV_NAMESPACE_ID"
+      "id": "fc444e5432b044eb9882eae348ef0467"
     }
   ],
 
