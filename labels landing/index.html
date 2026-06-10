@@ -16,11 +16,8 @@
             <div class="hero-content">
 
                 <h1 class="hero-title fade-in-up">
-                    Stop selecting .
-                    <br>
-                    <span class="hero-gradient">
-                        Start controlling .
-                    </span>
+                    Stop selecting .<br>
+                    <span class="hero-gradient">Start controlling .</span>
                 </h1>
 
                 <p class="hero-subtitle fade-in-up" style="--delay: 0.12s">
@@ -28,13 +25,11 @@
                 </p>
 
                 <div class="price-pill fade-in-up" style="--delay: 0.24s">
-    <span class="price-pill-label">Starting from $10</span>
-    <a href="#" class="price-pill-btn">Buy</a>
-</div>
+                    <span class="price-pill-label">Starting from $10</span>
+                    <button class="price-pill-btn" id="buyBtn">Buy</button>
+                </div>
 
-                
-                    
-               
+            </div>
         </div>
     </section>
 
@@ -43,70 +38,45 @@
 
             <div class="feature-row fade-in-up">
                 <div class="feature-row-text">
-                    <div class="feature-row-icon">
-
-
-                        
-                    </div>
                     <h3 class="feature-row-title">Click a color</h3>
-                    <p class="feature-row-description">
-                        Apply label colors instantly. No menus, no friction.
-                    </p>
-                </div>
-                <div class="feature-row-visual">
-                    <div class="feature-card-dark">
-    <video class="demo-video" autoplay muted loop playsinline>
-        <source src="video/select-color.mp4" type="video/mp4">
-    </video>
-    
-</div>
-                </div>
-            </div>
-
-
-
-            <div class="feature-row fade-in-up">
-                <div class="feature-row-text">
-                    <div class="feature-row-icon">
-                        
-                    </div>
-                    <h3 class="feature-row-title">Double click to reset</h3>
-                    <p class="feature-row-description">
-                       Back to default. 
-                    </p>
-                </div>
-                <div class="feature-row-visual">
-                    <div class="feature-card-dark">
-                       <video class="demo-video" autoplay muted loop playsinline>
-  <source src="./video/double-click-reset.mp4" type="video/mp4">
-</video>
-                        
-                    </div>
-                </div>
-            </div>
-
-            <div class="feature-row fade-in-up">
-                <div class="feature-row-text">
-                    <div class="feature-row-icon">
-                        
-                    </div>
-                    <h3 class="feature-row-title">Select by color
-</h3>
-                    <p class="feature-row-description">
-                        One click. Every matching layer. 
-                    </p>
+                    <p class="feature-row-description">Apply label colors instantly. No menus, no friction.</p>
                 </div>
                 <div class="feature-row-visual">
                     <div class="feature-card-dark">
                         <video class="demo-video" autoplay muted loop playsinline>
-  <source src="./video/nothing-selected.mp4" type="video/mp4">
-</video>
-                        
+                            <source src="video/select-color.mp4" type="video/mp4">
+                        </video>
                     </div>
                 </div>
             </div>
 
+            <div class="feature-row fade-in-up">
+                <div class="feature-row-text">
+                    <h3 class="feature-row-title">Double click to reset</h3>
+                    <p class="feature-row-description">Back to default.</p>
+                </div>
+                <div class="feature-row-visual">
+                    <div class="feature-card-dark">
+                        <video class="demo-video" autoplay muted loop playsinline>
+                            <source src="video/double-click-reset.mp4" type="video/mp4">
+                        </video>
+                    </div>
+                </div>
+            </div>
 
+            <div class="feature-row fade-in-up">
+                <div class="feature-row-text">
+                    <h3 class="feature-row-title">Select by color</h3>
+                    <p class="feature-row-description">One click. Every matching layer.</p>
+                </div>
+                <div class="feature-row-visual">
+                    <div class="feature-card-dark">
+                        <video class="demo-video" autoplay muted loop playsinline>
+                            <source src="video/nothing-selected.mp4" type="video/mp4">
+                        </video>
+                    </div>
+                </div>
+            </div>
 
         </div>
     </section>
@@ -115,22 +85,56 @@
         <div class="container">
             <div class="use-cases-header fade-in-up">
                 <h2 class="nothing-title">Nothing between you and your work .</h2>
-               
             </div>
         </div>
     </section>
 
     <footer class="footer">
         <div class="container">
-            
-            <div class="footer-minimal fade-in-up" style="--delay: 0.1s">
+            <div class="footer-minimal fade-in-up">
                 <p class="footer-brand">iLabels. After Effects plugin.</p>
+                <nav class="footer-links">
+                    <a href="offer.html">Terms</a>
+                    <a href="privacy.html">Privacy</a>
+                    <a href="refund.html">Refunds</a>
+                    <a href="mailto:iosflowzy@gmail.com">Contact</a>
+                </nav>
                 <p class="footer-meta">© 2026. Designed with precision.</p>
             </div>
         </div>
     </footer>
 
 </div>
+
 <script src="script.js"></script>
+<script>
+(function () {
+    var API = 'https://ilabels-api.iosflowzy.workers.dev';
+    var btn = document.getElementById('buyBtn');
+    if (!btn) return;
+
+    btn.addEventListener('click', function () {
+        btn.disabled = true;
+        btn.textContent = '...';
+
+        fetch(API + '/api/create-order', { method: 'POST' })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (data.invoiceUrl) {
+                    window.location.href = data.invoiceUrl;
+                } else {
+                    btn.disabled = false;
+                    btn.textContent = 'Buy';
+                    alert('Something went wrong. Please try again.');
+                }
+            })
+            .catch(function () {
+                btn.disabled = false;
+                btn.textContent = 'Buy';
+                alert('Network error. Please try again.');
+            });
+    });
+}());
+</script>
 </body>
 </html>
