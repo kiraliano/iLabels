@@ -108,11 +108,16 @@
 
         var sep = "\\";
         var psPath = Folder.temp.fsName + sep + "ilabels_request.ps1";
+        var cmdPath = Folder.temp.fsName + sep + "ilabels_run.cmd";
         var outPath = Folder.temp.fsName + sep + "ilabels_response.txt";
+        var runnerPath = Folder.temp.fsName + sep + "ilabels_runner.txt";
         var debugPath = Folder.temp.fsName + sep + "ilabels_debug.txt";
 
         var oldOut = new File(outPath);
         if (oldOut.exists) { try { oldOut.remove(); } catch (e) {} }
+
+        var oldRunner = new File(runnerPath);
+        if (oldRunner.exists) { try { oldRunner.remove(); } catch (e) {} }
 
         var oldDebug = new File(debugPath);
         if (oldDebug.exists) { try { oldDebug.remove(); } catch (e) {} }
@@ -126,10 +131,21 @@
             + "exit 1\r\n"
             + "}\r\n";
 
+        var cmd = "@echo off\r\n"
+            + "set \"PS_EXE=C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe\"\r\n"
+            + "if exist \"%PS_EXE%\" (\r\n"
+            + "  \"%PS_EXE%\" -NoProfile -ExecutionPolicy Bypass -File \"" + psPath + "\" > \"" + runnerPath + "\" 2>&1\r\n"
+            + ") else (\r\n"
+            + "  powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"" + psPath + "\" > \"" + runnerPath + "\" 2>&1\r\n"
+            + ")\r\n"
+            + "echo EXIT_CODE=%ERRORLEVEL%>>\"" + runnerPath + "\"\r\n";
+
         writeFileText(psPath, ps);
-        var runnerOutput = system.callSystem("powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"" + psPath + "\"");
+        writeFileText(cmdPath, cmd);
+        var runnerOutput = system.callSystem("cmd.exe /c \"" + cmdPath + "\"");
 
         var content = waitForFileText(outPath, 30, 500);
+        var runnerLog = readFileText(runnerPath);
         if (!content && runnerOutput) {
             content = "PS_ERROR: " + String(runnerOutput);
         }
@@ -138,13 +154,17 @@
             writeFileText(debugPath,
                 "PowerShell did not write a response.\r\n"
                 + "Script: " + psPath + "\r\n"
+                + "Runner: " + cmdPath + "\r\n"
+                + "Runner log: " + runnerPath + "\r\n"
                 + "Response: " + outPath + "\r\n"
                 + "URL: " + url + "\r\n"
+                + "system.callSystem output: " + String(runnerOutput || "") + "\r\n"
+                + "runner log content: " + String(runnerLog || "") + "\r\n"
             );
             return "PS_ERROR: No response file. Debug: " + debugPath;
         }
 
-        // Keep psPath/outPath for troubleshooting on Windows. They are overwritten on the next request.
+        // Keep psPath/cmdPath/runnerPath/outPath for troubleshooting on Windows. They are overwritten on the next request.
         return content;
     }
 
