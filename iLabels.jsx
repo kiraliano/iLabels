@@ -72,86 +72,24 @@
         var result = { success: false, data: null, error: "Request failed" };
 
         try {
-            var isWin    = ($.os.indexOf("Windows") >= 0);
-            var sep      = isWin ? "\\" : "/";
-            var outPath    = Folder.temp.fsName + sep + "ilabels_res.json";
-            var statusPath = Folder.temp.fsName + sep + "ilabels_status.txt";
-            var errPath    = Folder.temp.fsName + sep + "ilabels_error.txt";
-            // Удаляем старый output, если остался от прошлого вызова
-            var outFile = new File(outPath);
-            if (outFile.exists) { try { outFile.remove(); } catch (e) {} }
-
-            var statusFile = new File(statusPath);
-            if (statusFile.exists) { try { statusFile.remove(); } catch (e) {} }
-
-            var errFile = new File(errPath);
-            if (errFile.exists) { try { errFile.remove(); } catch (e) {} }
-
+            var isWin = ($.os.indexOf("Windows") >= 0);
             var url = baseUrl + endpoint + buildQueryString(payload);
-
             var curlBin = isWin ? "curl.exe" : "curl";
-            var httpCodeFormat = isWin ? "%%{http_code}" : "%{http_code}";
-            var curlCmd = curlBin + " -sS -L --max-time 15 \"" + url + "\""
-                        + " -o \"" + outPath + "\""
-                        + " -w \"" + httpCodeFormat + "\""
-                        + " > \"" + statusPath + "\""
-                        + " 2> \"" + errPath + "\"";
+            var curlCmd = curlBin + " -sS -L --max-time 15 \"" + url + "\"";
 
-            system.callSystem(curlCmd);
-
-            // system.callSystem не блокирующий — ждём пока curl отработает
-            $.sleep(1500);
-
-            var content = "";
-            var attempts = 0;
-            while (attempts < 5) {
-                outFile = new File(outPath);
-                if (outFile.exists) {
-                    outFile.encoding = "UTF-8";
-                    outFile.open("r");
-                    content = "";
-                    while (!outFile.eof) content += outFile.readln();
-                    outFile.close();
-                    if (content) break;
-                }
-                $.sleep(500);
-                attempts++;
-            }
-            var statusCode = "";
-            statusFile = new File(statusPath);
-            if (statusFile.exists) {
-                statusFile.encoding = "UTF-8";
-                statusFile.open("r");
-                while (!statusFile.eof) statusCode += statusFile.readln();
-                statusFile.close();
-            }
-
-            var curlError = "";
-            errFile = new File(errPath);
-            if (errFile.exists) {
-                errFile.encoding = "UTF-8";
-                errFile.open("r");
-                while (!errFile.eof) curlError += errFile.readln();
-                errFile.close();
-            }
-
-            try { outFile.remove(); } catch (e) {}
-            try { statusFile.remove(); } catch (e) {}
-            try { errFile.remove(); } catch (e) {}
-
+            var content = system.callSystem(curlCmd);
+            content = String(content || "");
             content = content.replace(/^\uFEFF/, ""); // снять BOM если есть
             content = content.replace(/^\s+|\s+$/g, "");
 
             if (!content) {
-                result.error = curlError
-                    ? "Curl failed" + (statusCode ? " (HTTP " + statusCode + ")" : "") + ": " + curlError.substr(0, 90)
-                    : "Empty response" + (statusCode ? " (HTTP " + statusCode + ")" : "");
+                result.error = "Empty response from curl";
                 return result;
             }
 
             if (content.charAt(0) !== "{" && content.charAt(0) !== "[") {
-                var snippet = content.replace(/\s+/g, " ").substr(0, 90);
-                result.error = "HTTP " + (statusCode || "?") + ": " + snippet;
+                var snippet = content.replace(/\s+/g, " ").substr(0, 120);
+                result.error = "Non-JSON response: " + snippet;
                 return result;
             }
 
@@ -159,9 +97,10 @@
             try {
                 parsed = JSON.parse(content);
             } catch (parseError) {
-                result.error = "Bad JSON" + (statusCode ? " (HTTP " + statusCode + ")" : "") + ": " + content.substr(0, 90);
+                result.error = "Bad JSON: " + content.substr(0, 120);
                 return result;
             }
+
             result.success = true;
             result.data    = parsed;
             result.error   = "";
@@ -182,6 +121,7 @@
             || msg.indexOf("http 5") >= 0
             || msg.indexOf("http ?") >= 0
             || msg.indexOf("server returned non-json") >= 0
+            || msg.indexOf("non-json response") >= 0
             || msg.indexOf("empty response") >= 0
             || msg.indexOf("curl failed") >= 0;
     }
