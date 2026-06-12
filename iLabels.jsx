@@ -150,7 +150,7 @@
 
     function activateLicense(key) {
         var deviceId = getDeviceId();
-        var res = apiRequest("/api/activate", { license: key, device: deviceId });
+        var res = apiRequest("/activate", { license: key, device: deviceId });
 
         if (!res.success) return { ok: false, msg: "Network error: " + res.error };
 
@@ -168,7 +168,7 @@
 
     function validateLicense(key) {
         var deviceId = getDeviceId();
-        var res = apiRequest("/api/validate", { license: key, device: deviceId });
+        var res = apiRequest("/validate", { license: key, device: deviceId });
 
         if (!res.success) return true; // если сеть недоступна — не блокируем
         return res.data && res.data.valid === true;
