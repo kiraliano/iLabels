@@ -109,9 +109,13 @@
         var sep = "\\";
         var psPath = Folder.temp.fsName + sep + "ilabels_request.ps1";
         var outPath = Folder.temp.fsName + sep + "ilabels_response.txt";
+        var debugPath = Folder.temp.fsName + sep + "ilabels_debug.txt";
 
         var oldOut = new File(outPath);
         if (oldOut.exists) { try { oldOut.remove(); } catch (e) {} }
+
+        var oldDebug = new File(debugPath);
+        if (oldDebug.exists) { try { oldDebug.remove(); } catch (e) {} }
 
         var ps = "try {\r\n"
             + "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12\r\n"
@@ -128,6 +132,16 @@
         var content = waitForFileText(outPath, 30, 500);
         if (!content && runnerOutput) {
             content = "PS_ERROR: " + String(runnerOutput);
+        }
+
+        if (!content) {
+            writeFileText(debugPath,
+                "PowerShell did not write a response.\r\n"
+                + "Script: " + psPath + "\r\n"
+                + "Response: " + outPath + "\r\n"
+                + "URL: " + url + "\r\n"
+            );
+            return "PS_ERROR: No response file. Debug: " + debugPath;
         }
 
         try { new File(psPath).remove(); } catch (e2) {}
@@ -148,7 +162,7 @@
             content = content.replace(/^\s+|\s+$/g, "");
 
             if (!content) {
-                result.error = isWin ? "Empty response from PowerShell" : "Empty response from curl";
+                result.error = isWin ? "Empty PowerShell response before parsing" : "Empty response from curl";
                 return result;
             }
 
