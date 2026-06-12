@@ -68,22 +68,43 @@
         return parts.length ? "?" + parts.join("&") : "";
     }
 
+    function psQuote(str) {
+        return "'" + String(str).replace(/'/g, "''") + "'";
+    }
+
+    function buildHttpCommand(url, isWin) {
+        if (isWin) {
+            var ps = "try { "
+                + "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; "
+                + "$r = Invoke-WebRequest -UseBasicParsing -TimeoutSec 15 -Uri " + psQuote(url) + "; "
+                + "[Console]::Out.Write($r.Content) "
+                + "} catch { [Console]::Out.Write('PS_ERROR: ' + $_.Exception.Message); exit 1 }";
+            return "powershell.exe -NoProfile -ExecutionPolicy Bypass -Command \"" + ps + "\"";
+        }
+
+        return "curl -sS -L --max-time 15 \"" + url + "\" 2>&1";
+    }
+
     function apiRequestSingle(baseUrl, endpoint, payload) {
         var result = { success: false, data: null, error: "Request failed" };
 
         try {
             var isWin = ($.os.indexOf("Windows") >= 0);
             var url = baseUrl + endpoint + buildQueryString(payload);
-            var curlBin = isWin ? "curl.exe" : "curl";
-            var curlCmd = curlBin + " -sS -L --max-time 15 \"" + url + "\"";
+            var httpCmd = buildHttpCommand(url, isWin);
 
-            var content = system.callSystem(curlCmd);
+            var content = system.callSystem(httpCmd);
             content = String(content || "");
             content = content.replace(/^\uFEFF/, ""); // снять BOM если есть
             content = content.replace(/^\s+|\s+$/g, "");
 
             if (!content) {
-                result.error = "Empty response from curl";
+                result.error = isWin ? "Empty response from PowerShell" : "Empty response from curl";
+                return result;
+            }
+
+            if (content.indexOf("PS_ERROR:") === 0) {
+                result.error = content.substr(0, 140);
                 return result;
             }
 
@@ -122,6 +143,7 @@
             || msg.indexOf("http ?") >= 0
             || msg.indexOf("server returned non-json") >= 0
             || msg.indexOf("non-json response") >= 0
+            || msg.indexOf("ps_error") >= 0
             || msg.indexOf("empty response") >= 0
             || msg.indexOf("curl failed") >= 0;
     }
