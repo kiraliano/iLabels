@@ -59,8 +59,10 @@
         try {
             var isWin    = ($.os.indexOf("Windows") >= 0);
             var sep      = isWin ? "\\" : "/";
-            var inPath   = Folder.temp.fsName + sep + "ilabels_req.json";
-            var outPath  = Folder.temp.fsName + sep + "ilabels_res.json";
+            var inPath     = Folder.temp.fsName + sep + "ilabels_req.json";
+            var outPath    = Folder.temp.fsName + sep + "ilabels_res.json";
+            var statusPath = Folder.temp.fsName + sep + "ilabels_status.txt";
+            var errPath    = Folder.temp.fsName + sep + "ilabels_error.txt";
 
             var inFile = new File(inPath);
             inFile.encoding = "UTF-8";
@@ -72,13 +74,22 @@
             var outFile = new File(outPath);
             if (outFile.exists) { try { outFile.remove(); } catch (e) {} }
 
+            var statusFile = new File(statusPath);
+            if (statusFile.exists) { try { statusFile.remove(); } catch (e) {} }
+
+            var errFile = new File(errPath);
+            if (errFile.exists) { try { errFile.remove(); } catch (e) {} }
+
             var url = API_BASE + endpoint;
 
             var curlBin = isWin ? "curl.exe" : "curl";
-            var curlCmd = curlBin + " -s --max-time 15 -X POST \"" + url + "\""
+            var curlCmd = curlBin + " -sS -L --max-time 15 -X POST \"" + url + "\""
                         + " -H \"Content-Type: application/json\""
                         + " --data-binary @\"" + inPath + "\""
-                        + " -o \"" + outPath + "\"";
+                        + " -o \"" + outPath + "\""
+                        + " -w \"%{http_code}\""
+                        + " > \"" + statusPath + "\""
+                        + " 2> \"" + errPath + "\"";
 
             system.callSystem(curlCmd);
 
@@ -102,21 +113,51 @@
                 $.sleep(500);
                 attempts++;
             }
+            var statusCode = "";
+            statusFile = new File(statusPath);
+            if (statusFile.exists) {
+                statusFile.encoding = "UTF-8";
+                statusFile.open("r");
+                while (!statusFile.eof) statusCode += statusFile.readln();
+                statusFile.close();
+            }
+
+            var curlError = "";
+            errFile = new File(errPath);
+            if (errFile.exists) {
+                errFile.encoding = "UTF-8";
+                errFile.open("r");
+                while (!errFile.eof) curlError += errFile.readln();
+                errFile.close();
+            }
+
             try { outFile.remove(); } catch (e) {}
+            try { statusFile.remove(); } catch (e) {}
+            try { errFile.remove(); } catch (e) {}
 
             content = content.replace(/^\uFEFF/, ""); // снять BOM если есть
+            content = content.replace(/^\s+|\s+$/g, "");
 
             if (!content) {
-                result.error = "Empty response";
+                result.error = curlError
+                    ? "Curl failed" + (statusCode ? " (HTTP " + statusCode + ")" : "") + ": " + curlError.substr(0, 90)
+                    : "Empty response" + (statusCode ? " (HTTP " + statusCode + ")" : "");
                 return result;
             }
 
             if (content.charAt(0) !== "{" && content.charAt(0) !== "[") {
-                result.error = "Server returned non-JSON: " + content.substr(0, 80);
+                var snippet = content.replace(/\s+/g, " ").substr(0, 90);
+                result.error = "HTTP " + (statusCode || "?") + ": " + snippet;
                 return result;
             }
 
-            var parsed = JSON.parse(content);
+            var parsed;
+            try {
+                parsed = JSON.parse(content);
+            } catch (parseError) {
+                result.error = "Bad JSON" + (statusCode ? " (HTTP " + statusCode + ")" : "") + ": " + content.substr(0, 90);
+                return result;
+            }
             result.success = true;
             result.data    = parsed;
             result.error   = "";
