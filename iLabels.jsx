@@ -138,7 +138,7 @@
             return { ok: true, msg: "Activated! Remaining: " + (data.remaining || 0) };
         }
 
-        return { ok: false, msg: data ? (data.error || "Activation denied") : "Unknown error" };
+        return { ok: false, msg: data ? (data.message || data.error || "Activation denied") : "Unknown error" };
     }
 
     // ─── ЛИЦЕНЗИЯ: ВАЛИДАЦИЯ ─────────────────────────────────────────────────

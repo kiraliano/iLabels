@@ -196,7 +196,11 @@ async function activate(request, env) {
 
   // Лимит достигнут
   if (data.activations >= data.maxActivations) {
-    return json({ success: false, error: `Limit reached (${data.maxActivations}/${data.maxActivations})` });
+    return json({
+      success: false,
+      error: "activation_limit_reached",
+      message: "activation limit reached"
+    }, 403);
   }
 
   data.activations += 1;
