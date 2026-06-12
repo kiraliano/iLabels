@@ -144,9 +144,7 @@
             return "PS_ERROR: No response file. Debug: " + debugPath;
         }
 
-        try { new File(psPath).remove(); } catch (e2) {}
-        try { new File(outPath).remove(); } catch (e3) {}
-
+        // Keep psPath/outPath for troubleshooting on Windows. They are overwritten on the next request.
         return content;
     }
 
@@ -370,6 +368,9 @@
             } else {
                 statusTxt.graphics.foregroundColor = statusTxt.graphics.newPen(statusTxt.graphics.PenType.SOLID_COLOR, [0.8, 0.3, 0.3, 1], 1);
                 statusTxt.text = result.msg;
+                if (result.msg && result.msg.length > 40) {
+                    alert(result.msg);
+                }
                 activateBtn.enabled = true;
                 activateBtn.text    = "Activate";
             }
