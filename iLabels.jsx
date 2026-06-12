@@ -6,6 +6,10 @@
     // ─── КОНФИГУРАЦИЯ ────────────────────────────────────────────────────────
 
     var API_BASE        = "https://ilabels-api.iosflowzy.workers.dev";
+    var API_BASES       = [
+        "https://ilabels-api.iosflowzy.workers.dev",
+        "https://ilabels.iosflowzy.workers.dev"
+    ];
     var SETTINGS_SECT   = "iLabels";
     var VALIDATE_DAYS   = 7; // валидация раз в неделю
 
@@ -53,7 +57,7 @@
 
     // ─── ЛИЦЕНЗИЯ: HTTP ЗАПРОС ЧЕРЕЗ CURL ───────────────────────────────────
 
-    function apiRequest(endpoint, payload) {
+    function apiRequestSingle(baseUrl, endpoint, payload) {
         var result = { success: false, data: null, error: "Request failed" };
 
         try {
@@ -80,14 +84,15 @@
             var errFile = new File(errPath);
             if (errFile.exists) { try { errFile.remove(); } catch (e) {} }
 
-            var url = API_BASE + endpoint;
+            var url = baseUrl + endpoint;
 
             var curlBin = isWin ? "curl.exe" : "curl";
+            var httpCodeFormat = isWin ? "%%{http_code}" : "%{http_code}";
             var curlCmd = curlBin + " -sS -L --max-time 15 -X POST \"" + url + "\""
                         + " -H \"Content-Type: application/json\""
                         + " --data-binary @\"" + inPath + "\""
                         + " -o \"" + outPath + "\""
-                        + " -w \"%{http_code}\""
+                        + " -w \"" + httpCodeFormat + "\""
                         + " > \"" + statusPath + "\""
                         + " 2> \"" + errPath + "\"";
 
@@ -167,6 +172,39 @@
         }
 
         return result;
+    }
+
+    function shouldTryNextApiRoute(res) {
+        if (!res || res.success) return false;
+        var msg = String(res.error || "").toLowerCase();
+        return msg.indexOf("not found") >= 0
+            || msg.indexOf("http 403") >= 0
+            || msg.indexOf("http 404") >= 0
+            || msg.indexOf("http 5") >= 0
+            || msg.indexOf("http ?") >= 0
+            || msg.indexOf("server returned non-json") >= 0
+            || msg.indexOf("empty response") >= 0
+            || msg.indexOf("curl failed") >= 0;
+    }
+
+    function apiRequest(endpoint, payload) {
+        var paths = [endpoint];
+        if (endpoint.indexOf("/api/") === 0) {
+            paths.push(endpoint.substr(4));
+        } else {
+            paths.push("/api" + endpoint);
+        }
+
+        var last = null;
+        for (var b = 0; b < API_BASES.length; b++) {
+            for (var p = 0; p < paths.length; p++) {
+                last = apiRequestSingle(API_BASES[b], paths[p], payload);
+                if (last.success) return last;
+                if (!shouldTryNextApiRoute(last)) return last;
+            }
+        }
+
+        return last || { success: false, data: null, error: "Request failed" };
     }
 
     // ─── ЛИЦЕНЗИЯ: АКТИВАЦИЯ ────────────────────────────────────────────────
