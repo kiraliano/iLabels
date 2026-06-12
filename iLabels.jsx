@@ -57,6 +57,17 @@
 
     // ─── ЛИЦЕНЗИЯ: HTTP ЗАПРОС ЧЕРЕЗ CURL ───────────────────────────────────
 
+    function buildQueryString(payload) {
+        var parts = [];
+        if (payload && payload.license) {
+            parts.push("license=" + encodeURIComponent(String(payload.license)));
+        }
+        if (payload && payload.device) {
+            parts.push("device=" + encodeURIComponent(String(payload.device)));
+        }
+        return parts.length ? "?" + parts.join("&") : "";
+    }
+
     function apiRequestSingle(baseUrl, endpoint, payload) {
         var result = { success: false, data: null, error: "Request failed" };
 
@@ -84,7 +95,7 @@
             var errFile = new File(errPath);
             if (errFile.exists) { try { errFile.remove(); } catch (e) {} }
 
-            var url = baseUrl + endpoint;
+            var url = baseUrl + endpoint + buildQueryString(payload);
 
             var curlBin = isWin ? "curl.exe" : "curl";
             var httpCodeFormat = isWin ? "%%{http_code}" : "%{http_code}";

@@ -195,7 +195,10 @@ async function webhook(request, env) {
    гонка. Не добавляем Durable Object для первого релиза без реальных жалоб.
    ============================================================ */
 async function activate(request, env) {
-  const { license, device } = await request.json().catch(() => ({}));
+  const url = new URL(request.url);
+  const body = await request.json().catch(() => ({}));
+  const license = body.license || url.searchParams.get('license');
+  const device = body.device || url.searchParams.get('device');
   if (!license || !device) return json({ success: false, error: 'Missing fields' }, 400);
 
   const key = license.trim().toUpperCase();
@@ -247,7 +250,10 @@ async function activate(request, env) {
    Плагин вызывает раз в неделю тихо.
    ============================================================ */
 async function validate(request, env) {
-  const { license, device } = await request.json().catch(() => ({}));
+  const url = new URL(request.url);
+  const body = await request.json().catch(() => ({}));
+  const license = body.license || url.searchParams.get('license');
+  const device = body.device || url.searchParams.get('device');
   if (!license || !device) return json({ valid: false }, 400);
 
   const key = license.trim().toUpperCase();
