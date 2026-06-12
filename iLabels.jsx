@@ -68,22 +68,24 @@
         return parts.length ? "?" + parts.join("&") : "";
     }
 
+    function shellJsonArg(json, isWin) {
+        if (isWin) {
+            return "\"" + json.replace(/\\/g, "\\\\").replace(/"/g, "\\\"") + "\"";
+        }
+        return "'" + json.replace(/'/g, "'\\''") + "'";
+    }
+
     function apiRequestSingle(baseUrl, endpoint, payload) {
         var result = { success: false, data: null, error: "Request failed" };
 
         try {
             var isWin    = ($.os.indexOf("Windows") >= 0);
             var sep      = isWin ? "\\" : "/";
-            var inPath     = Folder.temp.fsName + sep + "ilabels_req.json";
             var outPath    = Folder.temp.fsName + sep + "ilabels_res.json";
             var statusPath = Folder.temp.fsName + sep + "ilabels_status.txt";
             var errPath    = Folder.temp.fsName + sep + "ilabels_error.txt";
+            var jsonPayload = JSON.stringify(payload);
 
-            var inFile = new File(inPath);
-            inFile.encoding = "UTF-8";
-            inFile.open("w");
-            inFile.write(JSON.stringify(payload));
-            inFile.close();
 
             // Удаляем старый output, если остался от прошлого вызова
             var outFile = new File(outPath);
@@ -101,7 +103,7 @@
             var httpCodeFormat = isWin ? "%%{http_code}" : "%{http_code}";
             var curlCmd = curlBin + " -sS -L --max-time 15 -X POST \"" + url + "\""
                         + " -H \"Content-Type: application/json\""
-                        + " --data-binary @\"" + inPath + "\""
+                        + " --data-raw " + shellJsonArg(jsonPayload, isWin)
                         + " -o \"" + outPath + "\""
                         + " -w \"" + httpCodeFormat + "\""
                         + " > \"" + statusPath + "\""
@@ -111,8 +113,6 @@
 
             // system.callSystem не блокирующий — ждём пока curl отработает
             $.sleep(1500);
-
-            try { inFile.remove(); } catch (e) {}
 
             var content = "";
             var attempts = 0;
