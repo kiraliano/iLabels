@@ -149,6 +149,7 @@ async function webhook(request, env) {
 
   // Сохраняем лицензию в KV
   await env.KV.put(`license:${licenseKey}`, JSON.stringify({
+    status:         'active',
     activations:    0,
     maxActivations: 2,
     devices:        [],
@@ -219,7 +220,11 @@ async function validate(request, env) {
   if (!raw) return json({ valid: false });
 
   const data = JSON.parse(raw);
-  return json({ valid: data.devices.includes(device) });
+  if (data.status !== 'active') return json({ valid: false });
+
+  const devices = Array.isArray(data.devices) ? data.devices : [];
+  const registered = devices.some(d => typeof d === 'string' ? d === device : d && d.id === device);
+  return json({ valid: registered });
 }
 
 /* ============================================================
@@ -315,6 +320,7 @@ async function createTestOrder(env) {
   const existing = await env.KV.get(`license:${licenseKey}`);
   if (!existing) {
     await env.KV.put(`license:${licenseKey}`, JSON.stringify({
+      status: 'active',
       activations: 0,
       maxActivations: 2,
       devices: [],
