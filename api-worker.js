@@ -140,6 +140,20 @@ async function webhook(request, env) {
   const orderNumber = String(body.order_number || '');
   if (!orderNumber) return json({ error: 'No order_number' }, 400);
 
+  const existingOrderRaw = await env.KV.get(`order:${orderNumber}`);
+  if (!existingOrderRaw) return json({ error: 'Order not found' }, 404);
+
+  let existingOrder;
+  try { existingOrder = JSON.parse(existingOrderRaw); } catch { return json({ error: 'Invalid order record' }, 500); }
+
+  if (existingOrder.status === 'paid') {
+    return json({ ok: true, duplicate: true });
+  }
+
+  if (existingOrder.status !== 'pending') {
+    return json({ error: 'Order is not pending', status: existingOrder.status || 'unknown' }, 409);
+  }
+
   // Генерируем лицензионный ключ
   const licenseKey    = generateLicenseKey();
   const downloadToken = generateToken();
