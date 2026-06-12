@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>iLabels — Thank you</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .success-page {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px 20px;
+        }
+        .success-card {
+            background: #fff;
+            border-radius: 28px;
+            padding: 48px 40px;
+            max-width: 480px;
+            width: 100%;
+            box-shadow: 0 24px 80px rgba(0,0,0,0.10);
+            text-align: center;
+        }
+        .success-tag {
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: #86868b;
+            margin-bottom: 12px;
+        }
+        .success-title {
+            font-size: 28px;
+            font-weight: 700;
+            color: #1d1d1f;
+            letter-spacing: -0.03em;
+            margin-bottom: 8px;
+        }
+        .success-sub {
+            font-size: 15px;
+            color: #86868b;
+            margin-bottom: 32px;
+        }
+        /* Ожидание */
+        .waiting-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid #e8e8ed;
+            border-top-color: #1d1d1f;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 20px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .waiting-text {
+            font-size: 15px;
+            color: #86868b;
+        }
+        /* Успех */
+        .key-label {
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: #86868b;
+            margin-bottom: 10px;
+        }
+        .key-box {
+            background: #f5f5f7;
+            border-radius: 12px;
+            padding: 16px 20px;
+            font-family: monospace;
+            font-size: 20px;
+            font-weight: 700;
+            color: #1d1d1f;
+            letter-spacing: 0.06em;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: background 0.2s;
+            position: relative;
+        }
+        .key-box:hover { background: #e8e8ed; }
+        .key-copy-hint {
+            font-size: 12px;
+            color: #86868b;
+            margin-bottom: 28px;
+        }
+        .key-instructions {
+            background: #f5f5f7;
+            border-radius: 12px;
+            padding: 16px;
+            text-align: left;
+            margin-bottom: 24px;
+        }
+        .key-instructions p {
+            font-size: 13px;
+            color: #86868b;
+            margin: 0 0 4px;
+            line-height: 1.5;
+        }
+        .btn-download {
+            display: block;
+            background: #1d1d1f;
+            color: #fff;
+            text-decoration: none;
+            padding: 16px 32px;
+            border-radius: 980px;
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            transition: opacity 0.2s;
+        }
+        .btn-download:hover { opacity: 0.85; color: #fff; }
+        .success-footer {
+            font-size: 12px;
+            color: #86868b;
+            margin-top: 16px;
+        }
+        .success-footer a { color: #007aff; }
+        /* Ошибка */
+        .error-icon {
+            font-size: 32px;
+            margin-bottom: 12px;
+        }
+        #stateWaiting, #stateSuccess, #stateError, #stateTimeout { display: none; }
+    </style>
+</head>
+<body>
+<div class="success-page">
+    <div class="success-card">
+
+        <div class="success-tag">iLabels</div>
+
+        <!-- СОСТОЯНИЕ: Ожидание подтверждения -->
+        <div id="stateWaiting">
+            <div class="waiting-spinner"></div>
+            <h1 class="success-title">Confirming payment...</h1>
+            <p class="waiting-text">This usually takes 1–3 minutes.<br>Don't close this tab.</p>
+        </div>
+
+        <!-- СОСТОЯНИЕ: Успех -->
+        <div id="stateSuccess">
+            <h1 class="success-title">You're in.</h1>
+            <p class="success-sub">Save your license key before closing this page.</p>
+
+            <div class="key-label">License Key</div>
+            <div class="key-box" id="licenseKey" title="Click to copy"></div>
+            <p class="key-copy-hint">Click to copy</p>
+
+            <div class="key-instructions">
+                <p>1. Download and unzip iLabels.</p>
+                <p>2. Place <strong>iLabels.jsx</strong> in After Effects ScriptUI Panels folder.</p>
+                <p>3. Open After Effects → Window → iLabels.jsx</p>
+                <p>4. Enter your license key when prompted.</p>
+            </div>
+
+            <a id="downloadBtn" href="#" class="btn-download">Download iLabels</a>
+            <p class="success-footer">
+                Need help? <a href="mailto:iosflowzy@gmail.com">iosflowzy@gmail.com</a>
+            </p>
+        </div>
+
+        <!-- СОСТОЯНИЕ: Timeout -->
+        <div id="stateTimeout">
+            <div class="error-icon">⏱</div>
+            <h1 class="success-title">Taking longer than usual.</h1>
+            <p class="waiting-text">
+                Your payment is still being confirmed. Check back in a few minutes.<br><br>
+                If you have already paid and this persists, contact
+                <a href="mailto:iosflowzy@gmail.com" style="color:#007aff">iosflowzy@gmail.com</a>
+                with your order ID: <strong id="orderDisplay"></strong>
+            </p>
+        </div>
+
+        <!-- СОСТОЯНИЕ: Ошибка (нет order в URL) -->
+        <div id="stateError">
+            <div class="error-icon">⚠️</div>
+            <h1 class="success-title">Something went wrong.</h1>
+            <p class="waiting-text">
+                Invalid link. If you've already paid, contact
+                <a href="mailto:iosflowzy@gmail.com" style="color:#007aff">iosflowzy@gmail.com</a>.
+            </p>
+        </div>
+
+    </div>
+</div>
+
+<script>
+(function () {
+    var API = 'https://ilabels-api.iosflowzy.workers.dev';
+    var order = new URLSearchParams(window.location.search).get('order');
+
+    function show(id) {
+        ['stateWaiting', 'stateSuccess', 'stateTimeout', 'stateError'].forEach(function (s) {
+            document.getElementById(s).style.display = (s === id) ? 'block' : 'none';
+        });
+    }
+
+    if (!order) { show('stateError'); return; }
+
+    document.getElementById('orderDisplay').textContent = order;
+    show('stateWaiting');
+
+    var attempts = 0;
+    var maxAttempts = 60; // 3 минуты (60 × 3 сек)
+
+    var interval = setInterval(function () {
+        attempts++;
+
+        fetch(API + '/api/status?order=' + order)
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (data.status === 'paid') {
+                    clearInterval(interval);
+
+                    // Показываем ключ
+                    var keyEl = document.getElementById('licenseKey');
+                    keyEl.textContent = data.licenseKey;
+
+                    // Кнопка скачивания
+                    document.getElementById('downloadBtn').href =
+                        API + '/api/download?token=' + data.downloadToken;
+
+                    // Копирование по клику
+                    keyEl.addEventListener('click', function () {
+                        try {
+                            navigator.clipboard.writeText(data.licenseKey);
+                            keyEl.textContent = 'Copied!';
+                            setTimeout(function () { keyEl.textContent = data.licenseKey; }, 1500);
+                        } catch (e) {}
+                    });
+
+                    show('stateSuccess');
+                }
+            })
+            .catch(function () {}); // тихо игнорируем сетевые ошибки
+
+        if (attempts >= maxAttempts) {
+            clearInterval(interval);
+            show('stateTimeout');
+        }
+    }, 3000);
+}());
+</script>
+</body>
+</html>
