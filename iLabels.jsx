@@ -83,6 +83,16 @@
         return content;
     }
 
+    function waitForFileText(path, attempts, delayMs) {
+        var content = "";
+        for (var i = 0; i < attempts; i++) {
+            content = readFileText(path);
+            if (content) return content;
+            $.sleep(delayMs);
+        }
+        return content;
+    }
+
     function writeFileText(path, content) {
         var file = new File(path);
         file.encoding = "UTF-8";
@@ -113,9 +123,12 @@
             + "}\r\n";
 
         writeFileText(psPath, ps);
-        system.callSystem("powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"" + psPath + "\"");
+        var runnerOutput = system.callSystem("powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"" + psPath + "\"");
 
-        var content = readFileText(outPath);
+        var content = waitForFileText(outPath, 30, 500);
+        if (!content && runnerOutput) {
+            content = "PS_ERROR: " + String(runnerOutput);
+        }
 
         try { new File(psPath).remove(); } catch (e2) {}
         try { new File(outPath).remove(); } catch (e3) {}
