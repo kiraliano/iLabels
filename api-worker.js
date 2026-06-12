@@ -149,10 +149,10 @@ async function webhook(request, env) {
 
   // Сохраняем лицензию в KV
   await env.KV.put(`license:${licenseKey}`, JSON.stringify({
-    activations:    0,
-    maxActivations: 2,
-    devices:        [],
-    createdAt:      now,
+    license:     licenseKey,
+    devices:     [],
+    createdAt:   Date.now(),
+    status:      'active',
     orderNumber,
   }));
 
@@ -187,11 +187,15 @@ async function activate(request, env) {
   const raw = await env.KV.get(`license:${key}`);
   if (!raw) return json({ success: false, error: 'License not found' });
 
-  const data = JSON.parse(raw);
+  const data = normalizeLicenseData(JSON.parse(raw), key);
+
+  if (data.status !== 'active') {
+    return json({ success: false, error: 'License is not active' });
+  }
 
   // Уже активировано на этом устройстве
-  if (data.devices.includes(device)) {
-    return json({ success: true, message: 'Already active', remaining: data.maxActivations - data.activations });
+  if (data.devices.some(d => d.id === device)) {
+    return json({ success: true, message: 'Already active' });
   }
 
   // Лимит достигнут
@@ -201,13 +205,14 @@ async function activate(request, env) {
       error: "activation_limit_reached",
       message: "activation limit reached"
     }, 403);
+  if (data.devices.length >= 2) {
+    return json({ success: false, error: 'activation limit reached' });
   }
 
-  data.activations += 1;
-  data.devices.push(device);
+  data.devices.push({ id: device, activatedAt: Date.now() });
   await env.KV.put(`license:${key}`, JSON.stringify(data));
 
-  return json({ success: true, remaining: data.maxActivations - data.activations });
+  return json({ success: true });
 }
 
 /* ============================================================
@@ -222,8 +227,10 @@ async function validate(request, env) {
   const raw = await env.KV.get(`license:${key}`);
   if (!raw) return json({ valid: false });
 
-  const data = JSON.parse(raw);
-  return json({ valid: data.devices.includes(device) });
+  const data = normalizeLicenseData(JSON.parse(raw), key);
+  if (data.status !== 'active') return json({ valid: false });
+
+  return json({ valid: data.devices.some(d => d.id === device) });
 }
 
 /* ============================================================
@@ -238,15 +245,14 @@ async function deactivate(request, env) {
   const raw = await env.KV.get(`license:${key}`);
   if (!raw) return json({ success: false, error: 'Not found' });
 
-  const data  = JSON.parse(raw);
-  const idx   = data.devices.indexOf(device);
+  const data  = normalizeLicenseData(JSON.parse(raw), key);
+  const idx   = data.devices.findIndex(d => d.id === device);
   if (idx === -1) return json({ success: false, error: 'Device not found' });
 
   data.devices.splice(idx, 1);
-  data.activations = Math.max(0, data.activations - 1);
   await env.KV.put(`license:${key}`, JSON.stringify(data));
 
-  return json({ success: true, remaining: data.maxActivations - data.activations });
+  return json({ success: true });
 }
 
 /* ============================================================
@@ -261,8 +267,7 @@ async function adminReset(request, env) {
   const raw = await env.KV.get(`license:${key}`);
   if (!raw) return json({ ok: false, error: 'License not found' });
 
-  const data = JSON.parse(raw);
-  data.activations = 0;
+  const data = normalizeLicenseData(JSON.parse(raw), key);
   data.devices = [];
   await env.KV.put(`license:${key}`, JSON.stringify(data));
 
@@ -294,6 +299,33 @@ function generateLicenseKey() {
   return `ILBL-${seg()}-${seg()}-${seg()}`;
 }
 
+function normalizeLicenseData(data, licenseKey) {
+  const normalized = {
+    ...data,
+    license: data.license || licenseKey,
+    status: data.status || 'active',
+    devices: Array.isArray(data.devices) ? data.devices : [],
+  };
+
+  normalized.devices = normalized.devices
+    .map(device => {
+      if (typeof device === 'string') return { id: device, activatedAt: null };
+      if (device && typeof device === 'object' && device.id) {
+        return {
+          ...device,
+          activatedAt: device.activatedAt ?? null,
+        };
+      }
+      return null;
+    })
+    .filter(Boolean);
+
+  delete normalized.activations;
+  delete normalized.maxActivations;
+
+  return normalized;
+}
+
 async function verifyPlisio(body, secret) {
   try {
     const expected = String(body.verify_hash || '');
@@ -315,14 +347,14 @@ async function createTestOrder(env) {
   const orderId = 'test-' + Date.now();
   const licenseKey = 'ILBL-TEST-AAAA-BBBB';
 
-  // Создаём саму лицензию с 2 активациями (если ещё нет)
+  // Создаём саму лицензию (если ещё нет)
   const existing = await env.KV.get(`license:${licenseKey}`);
   if (!existing) {
     await env.KV.put(`license:${licenseKey}`, JSON.stringify({
-      activations: 0,
-      maxActivations: 2,
+      license: licenseKey,
       devices: [],
-      createdAt: new Date().toISOString(),
+      createdAt: Date.now(),
+      status: 'active',
       orderNumber: orderId,
     }));
   }

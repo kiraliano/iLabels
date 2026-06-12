@@ -5,7 +5,7 @@
 
     // ─── КОНФИГУРАЦИЯ ────────────────────────────────────────────────────────
 
-    var API_BASE        = "https://ilabels.iosflowzy.workers.dev";
+    var API_BASE        = "https://ilabels-api.iosflowzy.workers.dev";
     var SETTINGS_SECT   = "iLabels";
     var VALIDATE_DAYS   = 7; // валидация раз в неделю
 
@@ -127,7 +127,7 @@
 
     function activateLicense(key) {
         var deviceId = getDeviceId();
-        var res = apiRequest("/activate", { license: key, device: deviceId });
+        var res = apiRequest("/api/activate", { license: key, device: deviceId });
 
         if (!res.success) return { ok: false, msg: "Network error: " + res.error };
 
@@ -145,7 +145,7 @@
 
     function validateLicense(key) {
         var deviceId = getDeviceId();
-        var res = apiRequest("/validate", { license: key, device: deviceId });
+        var res = apiRequest("/api/validate", { license: key, device: deviceId });
 
         if (!res.success) return true; // если сеть недоступна — не блокируем
         return res.data && res.data.valid === true;
