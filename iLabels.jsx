@@ -68,13 +68,6 @@
         return parts.length ? "?" + parts.join("&") : "";
     }
 
-    function shellJsonArg(json, isWin) {
-        if (isWin) {
-            return "\"" + json.replace(/\\/g, "\\\\").replace(/"/g, "\\\"") + "\"";
-        }
-        return "'" + json.replace(/'/g, "'\\''") + "'";
-    }
-
     function apiRequestSingle(baseUrl, endpoint, payload) {
         var result = { success: false, data: null, error: "Request failed" };
 
@@ -84,9 +77,6 @@
             var outPath    = Folder.temp.fsName + sep + "ilabels_res.json";
             var statusPath = Folder.temp.fsName + sep + "ilabels_status.txt";
             var errPath    = Folder.temp.fsName + sep + "ilabels_error.txt";
-            var jsonPayload = JSON.stringify(payload);
-
-
             // Удаляем старый output, если остался от прошлого вызова
             var outFile = new File(outPath);
             if (outFile.exists) { try { outFile.remove(); } catch (e) {} }
@@ -101,9 +91,7 @@
 
             var curlBin = isWin ? "curl.exe" : "curl";
             var httpCodeFormat = isWin ? "%%{http_code}" : "%{http_code}";
-            var curlCmd = curlBin + " -sS -L --max-time 15 -X POST \"" + url + "\""
-                        + " -H \"Content-Type: application/json\""
-                        + " --data-raw " + shellJsonArg(jsonPayload, isWin)
+            var curlCmd = curlBin + " -sS -L --max-time 15 \"" + url + "\""
                         + " -o \"" + outPath + "\""
                         + " -w \"" + httpCodeFormat + "\""
                         + " > \"" + statusPath + "\""

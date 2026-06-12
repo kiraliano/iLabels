@@ -21,8 +21,8 @@ export default {
     else if (p === '/api/status'     && request.method === 'GET')  res = await getStatus(url, env);
     else if (p === '/api/download'   && request.method === 'GET')  res = await download(url, env);
     else if (p === '/api/plisio/webhook' && request.method === 'POST') res = await webhook(request, env);
-    else if ((p === '/api/activate' || p === '/activate') && request.method === 'POST') res = await activate(request, env);
-    else if ((p === '/api/validate' || p === '/validate') && request.method === 'POST') res = await validate(request, env);
+    else if ((p === '/api/activate' || p === '/activate') && (request.method === 'POST' || request.method === 'GET')) res = await activate(request, env);
+    else if ((p === '/api/validate' || p === '/validate') && (request.method === 'POST' || request.method === 'GET')) res = await validate(request, env);
     else if (p === '/admin/reset'    && request.method === 'POST') res = await adminReset(request, env);
     else res = new Response('Not found', { status: 404 });
 
@@ -188,7 +188,7 @@ async function webhook(request, env) {
 }
 
 /* ============================================================
-   POST /api/activate  { license, device }
+   GET/POST /api/activate  { license, device }
    Плагин вызывает при первом запуске.
    Важно: Cloudflare KV не даёт атомарных операций, поэтому при
    одновременной первой активации с разных устройств теоретически возможна
@@ -246,7 +246,7 @@ async function activate(request, env) {
 }
 
 /* ============================================================
-   POST /api/validate  { license, device }
+   GET/POST /api/validate  { license, device }
    Плагин вызывает раз в неделю тихо.
    ============================================================ */
 async function validate(request, env) {
