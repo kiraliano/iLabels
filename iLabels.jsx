@@ -72,17 +72,55 @@
         return "'" + String(str).replace(/'/g, "''") + "'";
     }
 
-    function buildHttpCommand(url, isWin) {
-        if (isWin) {
-            var ps = "try { "
-                + "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; "
-                + "$r = Invoke-WebRequest -UseBasicParsing -TimeoutSec 15 -Uri " + psQuote(url) + "; "
-                + "[Console]::Out.Write($r.Content) "
-                + "} catch { [Console]::Out.Write('PS_ERROR: ' + $_.Exception.Message); exit 1 }";
-            return "powershell.exe -NoProfile -ExecutionPolicy Bypass -Command \"" + ps + "\"";
+    function readFileText(path) {
+        var file = new File(path);
+        var content = "";
+        if (!file.exists) return content;
+        file.encoding = "UTF-8";
+        file.open("r");
+        while (!file.eof) content += file.readln();
+        file.close();
+        return content;
+    }
+
+    function writeFileText(path, content) {
+        var file = new File(path);
+        file.encoding = "UTF-8";
+        file.open("w");
+        file.write(content);
+        file.close();
+    }
+
+    function fetchHttpContent(url, isWin) {
+        if (!isWin) {
+            return system.callSystem("curl -sS -L --max-time 15 \"" + url + "\" 2>&1");
         }
 
-        return "curl -sS -L --max-time 15 \"" + url + "\" 2>&1";
+        var sep = "\\";
+        var psPath = Folder.temp.fsName + sep + "ilabels_request.ps1";
+        var outPath = Folder.temp.fsName + sep + "ilabels_response.txt";
+
+        var oldOut = new File(outPath);
+        if (oldOut.exists) { try { oldOut.remove(); } catch (e) {} }
+
+        var ps = "try {\r\n"
+            + "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12\r\n"
+            + "$r = Invoke-WebRequest -UseBasicParsing -TimeoutSec 15 -Uri " + psQuote(url) + "\r\n"
+            + "Set-Content -LiteralPath " + psQuote(outPath) + " -Value $r.Content -Encoding UTF8\r\n"
+            + "} catch {\r\n"
+            + "Set-Content -LiteralPath " + psQuote(outPath) + " -Value ('PS_ERROR: ' + $_.Exception.Message) -Encoding UTF8\r\n"
+            + "exit 1\r\n"
+            + "}\r\n";
+
+        writeFileText(psPath, ps);
+        system.callSystem("powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"" + psPath + "\"");
+
+        var content = readFileText(outPath);
+
+        try { new File(psPath).remove(); } catch (e2) {}
+        try { new File(outPath).remove(); } catch (e3) {}
+
+        return content;
     }
 
     function apiRequestSingle(baseUrl, endpoint, payload) {
@@ -91,9 +129,7 @@
         try {
             var isWin = ($.os.indexOf("Windows") >= 0);
             var url = baseUrl + endpoint + buildQueryString(payload);
-            var httpCmd = buildHttpCommand(url, isWin);
-
-            var content = system.callSystem(httpCmd);
+            var content = fetchHttpContent(url, isWin);
             content = String(content || "");
             content = content.replace(/^\uFEFF/, ""); // снять BOM если есть
             content = content.replace(/^\s+|\s+$/g, "");
