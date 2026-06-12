@@ -111,6 +111,11 @@
                 return result;
             }
 
+            if (content.charAt(0) !== "{" && content.charAt(0) !== "[") {
+                result.error = "Server returned non-JSON: " + content.substr(0, 80);
+                return result;
+            }
+
             var parsed = JSON.parse(content);
             result.success = true;
             result.data    = parsed;
