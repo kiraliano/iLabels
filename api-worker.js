@@ -6,7 +6,7 @@
 const CORS = {
   'Access-Control-Allow-Origin': 'https://ilabels.iosflowzy.workers.dev',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 };
 
 export default {
@@ -21,8 +21,8 @@ export default {
     else if (p === '/api/status'     && request.method === 'GET')  res = await getStatus(url, env);
     else if (p === '/api/download'   && request.method === 'GET')  res = await download(url, env);
     else if (p === '/api/plisio/webhook' && request.method === 'POST') res = await webhook(request, env);
-    else if (p === '/api/activate'   && request.method === 'POST') res = await activate(request, env);
-    else if (p === '/api/validate'   && request.method === 'POST') res = await validate(request, env);
+    else if ((p === '/api/activate' || p === '/activate') && (request.method === 'POST' || request.method === 'GET')) res = await activate(request, env);
+    else if ((p === '/api/validate' || p === '/validate') && (request.method === 'POST' || request.method === 'GET')) res = await validate(request, env);
     else if (p === '/admin/reset'    && request.method === 'POST') res = await adminReset(request, env);
     else res = new Response('Not found', { status: 404 });
 
@@ -157,13 +157,14 @@ async function webhook(request, env) {
   // Генерируем лицензионный ключ
   const licenseKey    = generateLicenseKey();
   const downloadToken = generateToken();
-  const now           = new Date().toISOString();
+  const now           = Date.now();
 
   // Сохраняем лицензию в KV
   await env.KV.put(`license:${licenseKey}`, JSON.stringify({
-    maxActivations: 2,
-    devices:        [],
-    createdAt:      now,
+    license:   licenseKey,
+    devices:   [],
+    createdAt: now,
+    status:    'active',
     orderNumber,
   }));
 
@@ -187,79 +188,82 @@ async function webhook(request, env) {
 }
 
 /* ============================================================
-   POST /api/activate  { license, device }
+   GET/POST /api/activate  { license, device }
    Плагин вызывает при первом запуске.
    Важно: Cloudflare KV не даёт атомарных операций, поэтому при
    одновременной первой активации с разных устройств теоретически возможна
    гонка. Не добавляем Durable Object для первого релиза без реальных жалоб.
    ============================================================ */
 async function activate(request, env) {
-  const { license, device } = await request.json().catch(() => ({}));
+  const url = new URL(request.url);
+  const body = await request.json().catch(() => ({}));
+  const license = body.license || url.searchParams.get('license');
+  const device = body.device || url.searchParams.get('device');
   if (!license || !device) return json({ success: false, error: 'Missing fields' }, 400);
 
   const key = license.trim().toUpperCase();
   const raw = await env.KV.get(`license:${key}`);
   if (!raw) return json({ success: false, error: 'License not found' });
 
-  const data = JSON.parse(raw);
-  data.devices = Array.isArray(data.devices) ? data.devices : [];
-  delete data.activations;
-
-  // Уже активировано на этом устройстве
-  if (data.devices.includes(device)) {
-    return json({ success: true, message: 'Already active', remaining: data.maxActivations - data.devices.length });
+  const data = normalizeLicenseData(JSON.parse(raw), key);
+  if (data.status !== 'active') {
+    return json({
+      success: false,
+      valid: false,
+      error: 'license_disabled',
+      message: 'License disabled',
+    }, 403);
   }
 
-  // Лимит достигнут
-  if (data.devices.length >= data.maxActivations) {
-    return json({ success: false, error: `Limit reached (${data.maxActivations}/${data.maxActivations})` });
+  const existingDevice = data.devices.find(item => item.id === device);
+  if (existingDevice) {
+    return json({
+      success: true,
+      valid: true,
+      message: 'already active',
+      remaining: Math.max(0, 2 - data.devices.length),
+    });
   }
 
-  data.devices.push(device);
+  if (data.devices.length >= 2) {
+    return json({
+      success: false,
+      valid: false,
+      error: 'activation_limit_reached',
+      message: 'activation limit reached',
+    }, 403);
+  }
+
+  data.devices.push({ id: device, activatedAt: Date.now() });
   await env.KV.put(`license:${key}`, JSON.stringify(data));
 
-  return json({ success: true, remaining: data.maxActivations - data.devices.length });
+  return json({
+    success: true,
+    valid: true,
+    message: 'activated',
+    remaining: Math.max(0, 2 - data.devices.length),
+  });
 }
 
 /* ============================================================
-   POST /api/validate  { license, device }
+   GET/POST /api/validate  { license, device }
    Плагин вызывает раз в неделю тихо.
    ============================================================ */
 async function validate(request, env) {
-  const { license, device } = await request.json().catch(() => ({}));
+  const url = new URL(request.url);
+  const body = await request.json().catch(() => ({}));
+  const license = body.license || url.searchParams.get('license');
+  const device = body.device || url.searchParams.get('device');
   if (!license || !device) return json({ valid: false }, 400);
 
   const key = license.trim().toUpperCase();
   const raw = await env.KV.get(`license:${key}`);
   if (!raw) return json({ valid: false });
 
-  const data = JSON.parse(raw);
-  const devices = Array.isArray(data.devices) ? data.devices : [];
-  return json({ valid: devices.includes(device) });
-}
+  const data = normalizeLicenseData(JSON.parse(raw), key);
+  if (data.status !== 'active') return json({ valid: false });
 
-/* ============================================================
-   POST /api/deactivate  { license, device }
-   Плагин вызывает если юзер хочет перенести на другой ПК.
-   ============================================================ */
-async function deactivate(request, env) {
-  const { license, device } = await request.json().catch(() => ({}));
-  if (!license || !device) return json({ success: false }, 400);
-
-  const key = license.trim().toUpperCase();
-  const raw = await env.KV.get(`license:${key}`);
-  if (!raw) return json({ success: false, error: 'Not found' });
-
-  const data  = JSON.parse(raw);
-  data.devices = Array.isArray(data.devices) ? data.devices : [];
-  const idx   = data.devices.indexOf(device);
-  if (idx === -1) return json({ success: false, error: 'Device not found' });
-
-  data.devices.splice(idx, 1);
-  delete data.activations;
-  await env.KV.put(`license:${key}`, JSON.stringify(data));
-
-  return json({ success: true, remaining: data.maxActivations - data.devices.length });
+  return json({ valid: data.devices.some(item => item.id === device) });
 }
 
 /* ============================================================
@@ -280,9 +284,8 @@ async function adminReset(request, env) {
   const raw = await env.KV.get(`license:${key}`);
   if (!raw) return json({ ok: false, error: 'License not found' });
 
-  const data = JSON.parse(raw);
+  const data = normalizeLicenseData(JSON.parse(raw), key);
   data.devices = [];
-  delete data.activations;
   await env.KV.put(`license:${key}`, JSON.stringify(data));
 
   return json({ ok: true, message: `Reset: ${key}` });
@@ -354,32 +357,6 @@ async function verifyPlisio(body, secret) {
 
 function mapStatus(s) {
   return ['completed', 'success', 'paid'].includes(String(s || '').toLowerCase()) ? 'paid' : 'other';
-}
-
-
-async function createTestOrder(env) {
-  const orderId = 'test-' + Date.now();
-  const licenseKey = 'ILBL-TEST-AAAA-BBBB';
-
-  // Создаём саму лицензию с лимитом на 2 устройства (если ещё нет)
-  const existing = await env.KV.get(`license:${licenseKey}`);
-  if (!existing) {
-    await env.KV.put(`license:${licenseKey}`, JSON.stringify({
-      maxActivations: 2,
-      devices: [],
-      createdAt: new Date().toISOString(),
-      orderNumber: orderId,
-    }));
-  }
-
-  await env.KV.put(`order:${orderId}`, JSON.stringify({
-    status: 'paid',
-    licenseKey,
-    downloadToken: 'testtoken123',
-    createdAt: new Date().toISOString()
-  }), { expirationTtl: 3600 });
-
-  return Response.redirect(`https://ilabels.iosflowzy.workers.dev/success.html?order=${orderId}`, 302);
 }
 
 

@@ -6,6 +6,10 @@
     // ─── КОНФИГУРАЦИЯ ────────────────────────────────────────────────────────
 
     var API_BASE        = "https://ilabels-api.iosflowzy.workers.dev";
+    var API_BASES       = [
+        "https://ilabels-api.iosflowzy.workers.dev",
+        "https://ilabels.iosflowzy.workers.dev"
+    ];
     var SETTINGS_SECT   = "iLabels";
     var VALIDATE_DAYS   = 7; // валидация раз в неделю
 
@@ -53,65 +57,71 @@
 
     // ─── ЛИЦЕНЗИЯ: HTTP ЗАПРОС ЧЕРЕЗ CURL ───────────────────────────────────
 
-    function apiRequest(endpoint, payload) {
+    function buildQueryString(payload) {
+        var parts = [];
+        if (payload && payload.license) {
+            parts.push("license=" + encodeURIComponent(String(payload.license)));
+        }
+        if (payload && payload.device) {
+            parts.push("device=" + encodeURIComponent(String(payload.device)));
+        }
+        return parts.length ? "?" + parts.join("&") : "";
+    }
+
+    function psQuote(str) {
+        return "'" + String(str).replace(/'/g, "''") + "'";
+    }
+
+    function buildHttpCommand(url, isWin) {
+        if (isWin) {
+            var ps = "try { "
+                + "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; "
+                + "$r = Invoke-WebRequest -UseBasicParsing -TimeoutSec 15 -Uri " + psQuote(url) + "; "
+                + "[Console]::Out.Write($r.Content) "
+                + "} catch { [Console]::Out.Write('PS_ERROR: ' + $_.Exception.Message); exit 1 }";
+            return "powershell.exe -NoProfile -ExecutionPolicy Bypass -Command \"" + ps + "\"";
+        }
+
+        return "curl -sS -L --max-time 15 \"" + url + "\" 2>&1";
+    }
+
+    function apiRequestSingle(baseUrl, endpoint, payload) {
         var result = { success: false, data: null, error: "Request failed" };
 
         try {
-            var isWin    = ($.os.indexOf("Windows") >= 0);
-            var sep      = isWin ? "\\" : "/";
-            var inPath   = Folder.temp.fsName + sep + "ilabels_req.json";
-            var outPath  = Folder.temp.fsName + sep + "ilabels_res.json";
+            var isWin = ($.os.indexOf("Windows") >= 0);
+            var url = baseUrl + endpoint + buildQueryString(payload);
+            var httpCmd = buildHttpCommand(url, isWin);
 
-            var inFile = new File(inPath);
-            inFile.encoding = "UTF-8";
-            inFile.open("w");
-            inFile.write(JSON.stringify(payload));
-            inFile.close();
-
-            // Удаляем старый output, если остался от прошлого вызова
-            var outFile = new File(outPath);
-            if (outFile.exists) { try { outFile.remove(); } catch (e) {} }
-
-            var url = API_BASE + endpoint;
-
-            var curlBin = isWin ? "curl.exe" : "curl";
-            var curlCmd = curlBin + " -s --max-time 15 -X POST \"" + url + "\""
-                        + " -H \"Content-Type: application/json\""
-                        + " --data-binary @\"" + inPath + "\""
-                        + " -o \"" + outPath + "\"";
-
-            system.callSystem(curlCmd);
-
-            // system.callSystem не блокирующий — ждём пока curl отработает
-            $.sleep(1500);
-
-            try { inFile.remove(); } catch (e) {}
-
-            var content = "";
-            var attempts = 0;
-            while (attempts < 5) {
-                outFile = new File(outPath);
-                if (outFile.exists) {
-                    outFile.encoding = "UTF-8";
-                    outFile.open("r");
-                    content = "";
-                    while (!outFile.eof) content += outFile.readln();
-                    outFile.close();
-                    if (content) break;
-                }
-                $.sleep(500);
-                attempts++;
-            }
-            try { outFile.remove(); } catch (e) {}
-
+            var content = system.callSystem(httpCmd);
+            content = String(content || "");
             content = content.replace(/^\uFEFF/, ""); // снять BOM если есть
+            content = content.replace(/^\s+|\s+$/g, "");
 
             if (!content) {
-                result.error = "Empty response";
+                result.error = isWin ? "Empty response from PowerShell" : "Empty response from curl";
                 return result;
             }
 
-            var parsed = JSON.parse(content);
+            if (content.indexOf("PS_ERROR:") === 0) {
+                result.error = content.substr(0, 140);
+                return result;
+            }
+
+            if (content.charAt(0) !== "{" && content.charAt(0) !== "[") {
+                var snippet = content.replace(/\s+/g, " ").substr(0, 120);
+                result.error = "Non-JSON response: " + snippet;
+                return result;
+            }
+
+            var parsed;
+            try {
+                parsed = JSON.parse(content);
+            } catch (parseError) {
+                result.error = "Bad JSON: " + content.substr(0, 120);
+                return result;
+            }
+
             result.success = true;
             result.data    = parsed;
             result.error   = "";
@@ -121,6 +131,41 @@
         }
 
         return result;
+    }
+
+    function shouldTryNextApiRoute(res) {
+        if (!res || res.success) return false;
+        var msg = String(res.error || "").toLowerCase();
+        return msg.indexOf("not found") >= 0
+            || msg.indexOf("http 403") >= 0
+            || msg.indexOf("http 404") >= 0
+            || msg.indexOf("http 5") >= 0
+            || msg.indexOf("http ?") >= 0
+            || msg.indexOf("server returned non-json") >= 0
+            || msg.indexOf("non-json response") >= 0
+            || msg.indexOf("ps_error") >= 0
+            || msg.indexOf("empty response") >= 0
+            || msg.indexOf("curl failed") >= 0;
+    }
+
+    function apiRequest(endpoint, payload) {
+        var paths = [endpoint];
+        if (endpoint.indexOf("/api/") === 0) {
+            paths.push(endpoint.substr(4));
+        } else {
+            paths.push("/api" + endpoint);
+        }
+
+        var last = null;
+        for (var b = 0; b < API_BASES.length; b++) {
+            for (var p = 0; p < paths.length; p++) {
+                last = apiRequestSingle(API_BASES[b], paths[p], payload);
+                if (last.success) return last;
+                if (!shouldTryNextApiRoute(last)) return last;
+            }
+        }
+
+        return last || { success: false, data: null, error: "Request failed" };
     }
 
     // ─── ЛИЦЕНЗИЯ: АКТИВАЦИЯ ────────────────────────────────────────────────
