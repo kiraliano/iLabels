@@ -246,12 +246,18 @@ async function deactivate(request, env) {
 }
 
 /* ============================================================
-   POST /admin/reset  { token, license }
+   POST /admin/reset
+   Authorization: Bearer ADMIN_TOKEN
+   { license }
    Ты вызываешь вручную если покупатель сменил ПК.
    ============================================================ */
 async function adminReset(request, env) {
-  const { token, license } = await request.json().catch(() => ({}));
-  if (!env.ADMIN_TOKEN || token !== env.ADMIN_TOKEN) return json({ ok: false, error: 'Unauthorized' }, 401);
+  const auth = request.headers.get('Authorization') || '';
+  if (!env.ADMIN_TOKEN || auth !== `Bearer ${env.ADMIN_TOKEN}`) {
+    return json({ ok: false, error: 'Unauthorized' }, 401);
+  }
+
+  const { license } = await request.json().catch(() => ({}));
 
   const key = String(license || '').trim().toUpperCase();
   const raw = await env.KV.get(`license:${key}`);
