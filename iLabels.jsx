@@ -6,6 +6,10 @@
     // ─── КОНФИГУРАЦИЯ ────────────────────────────────────────────────────────
 
     var API_BASE        = "https://ilabels-api.iosflowzy.workers.dev";
+    var API_BASES       = [
+        "https://ilabels-api.iosflowzy.workers.dev",
+        "https://ilabels.iosflowzy.workers.dev"
+    ];
     var SETTINGS_SECT   = "iLabels";
     var VALIDATE_DAYS   = 7; // валидация раз в неделю
 
@@ -53,65 +57,152 @@
 
     // ─── ЛИЦЕНЗИЯ: HTTP ЗАПРОС ЧЕРЕЗ CURL ───────────────────────────────────
 
-    function apiRequest(endpoint, payload) {
+    function buildQueryString(payload) {
+        var parts = [];
+        if (payload && payload.license) {
+            parts.push("license=" + encodeURIComponent(String(payload.license)));
+        }
+        if (payload && payload.device) {
+            parts.push("device=" + encodeURIComponent(String(payload.device)));
+        }
+        return parts.length ? "?" + parts.join("&") : "";
+    }
+
+    function psQuote(str) {
+        return "'" + String(str).replace(/'/g, "''") + "'";
+    }
+
+    function readFileText(path) {
+        var file = new File(path);
+        var content = "";
+        if (!file.exists) return content;
+        file.encoding = "UTF-8";
+        file.open("r");
+        while (!file.eof) content += file.readln();
+        file.close();
+        return content;
+    }
+
+    function waitForFileText(path, attempts, delayMs) {
+        var content = "";
+        for (var i = 0; i < attempts; i++) {
+            content = readFileText(path);
+            if (content) return content;
+            $.sleep(delayMs);
+        }
+        return content;
+    }
+
+    function writeFileText(path, content) {
+        var file = new File(path);
+        file.encoding = "UTF-8";
+        file.open("w");
+        file.write(content);
+        file.close();
+    }
+
+    function fetchHttpContent(url, isWin) {
+        if (!isWin) {
+            return system.callSystem("curl -sS -L --max-time 15 \"" + url + "\" 2>&1");
+        }
+
+        var sep = "\\";
+        var psPath = Folder.temp.fsName + sep + "ilabels_request.ps1";
+        var cmdPath = Folder.temp.fsName + sep + "ilabels_run.cmd";
+        var outPath = Folder.temp.fsName + sep + "ilabels_response.txt";
+        var runnerPath = Folder.temp.fsName + sep + "ilabels_runner.txt";
+        var debugPath = Folder.temp.fsName + sep + "ilabels_debug.txt";
+
+        var oldOut = new File(outPath);
+        if (oldOut.exists) { try { oldOut.remove(); } catch (e) {} }
+
+        var oldRunner = new File(runnerPath);
+        if (oldRunner.exists) { try { oldRunner.remove(); } catch (e) {} }
+
+        var oldDebug = new File(debugPath);
+        if (oldDebug.exists) { try { oldDebug.remove(); } catch (e) {} }
+
+        var ps = "try {\r\n"
+            + "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12\r\n"
+            + "$r = Invoke-WebRequest -UseBasicParsing -TimeoutSec 15 -Uri " + psQuote(url) + "\r\n"
+            + "Set-Content -LiteralPath " + psQuote(outPath) + " -Value $r.Content -Encoding UTF8\r\n"
+            + "} catch {\r\n"
+            + "Set-Content -LiteralPath " + psQuote(outPath) + " -Value ('PS_ERROR: ' + $_.Exception.Message) -Encoding UTF8\r\n"
+            + "exit 1\r\n"
+            + "}\r\n";
+
+        var cmd = "@echo off\r\n"
+            + "set \"PS_EXE=C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe\"\r\n"
+            + "if exist \"%PS_EXE%\" (\r\n"
+            + "  \"%PS_EXE%\" -NoProfile -ExecutionPolicy Bypass -File \"" + psPath + "\" > \"" + runnerPath + "\" 2>&1\r\n"
+            + ") else (\r\n"
+            + "  powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"" + psPath + "\" > \"" + runnerPath + "\" 2>&1\r\n"
+            + ")\r\n"
+            + "echo EXIT_CODE=%ERRORLEVEL%>>\"" + runnerPath + "\"\r\n";
+
+        writeFileText(psPath, ps);
+        writeFileText(cmdPath, cmd);
+        var runnerOutput = system.callSystem("cmd.exe /c \"" + cmdPath + "\"");
+
+        var content = waitForFileText(outPath, 30, 500);
+        var runnerLog = readFileText(runnerPath);
+        if (!content && runnerOutput) {
+            content = "PS_ERROR: " + String(runnerOutput);
+        }
+
+        if (!content) {
+            writeFileText(debugPath,
+                "PowerShell did not write a response.\r\n"
+                + "Script: " + psPath + "\r\n"
+                + "Runner: " + cmdPath + "\r\n"
+                + "Runner log: " + runnerPath + "\r\n"
+                + "Response: " + outPath + "\r\n"
+                + "URL: " + url + "\r\n"
+                + "system.callSystem output: " + String(runnerOutput || "") + "\r\n"
+                + "runner log content: " + String(runnerLog || "") + "\r\n"
+            );
+            return "PS_ERROR: No response file. Debug: " + debugPath;
+        }
+
+        // Keep psPath/cmdPath/runnerPath/outPath for troubleshooting on Windows. They are overwritten on the next request.
+        return content;
+    }
+
+    function apiRequestSingle(baseUrl, endpoint, payload) {
         var result = { success: false, data: null, error: "Request failed" };
 
         try {
-            var isWin    = ($.os.indexOf("Windows") >= 0);
-            var sep      = isWin ? "\\" : "/";
-            var inPath   = Folder.temp.fsName + sep + "ilabels_req.json";
-            var outPath  = Folder.temp.fsName + sep + "ilabels_res.json";
-
-            var inFile = new File(inPath);
-            inFile.encoding = "UTF-8";
-            inFile.open("w");
-            inFile.write(JSON.stringify(payload));
-            inFile.close();
-
-            // Удаляем старый output, если остался от прошлого вызова
-            var outFile = new File(outPath);
-            if (outFile.exists) { try { outFile.remove(); } catch (e) {} }
-
-            var url = API_BASE + endpoint;
-
-            var curlBin = isWin ? "curl.exe" : "curl";
-            var curlCmd = curlBin + " -s --max-time 15 -X POST \"" + url + "\""
-                        + " -H \"Content-Type: application/json\""
-                        + " --data-binary @\"" + inPath + "\""
-                        + " -o \"" + outPath + "\"";
-
-            system.callSystem(curlCmd);
-
-            // system.callSystem не блокирующий — ждём пока curl отработает
-            $.sleep(1500);
-
-            try { inFile.remove(); } catch (e) {}
-
-            var content = "";
-            var attempts = 0;
-            while (attempts < 5) {
-                outFile = new File(outPath);
-                if (outFile.exists) {
-                    outFile.encoding = "UTF-8";
-                    outFile.open("r");
-                    content = "";
-                    while (!outFile.eof) content += outFile.readln();
-                    outFile.close();
-                    if (content) break;
-                }
-                $.sleep(500);
-                attempts++;
-            }
-            try { outFile.remove(); } catch (e) {}
-
+            var isWin = ($.os.indexOf("Windows") >= 0);
+            var url = baseUrl + endpoint + buildQueryString(payload);
+            var content = fetchHttpContent(url, isWin);
+            content = String(content || "");
             content = content.replace(/^\uFEFF/, ""); // снять BOM если есть
+            content = content.replace(/^\s+|\s+$/g, "");
 
             if (!content) {
-                result.error = "Empty response";
+                result.error = isWin ? "Empty PowerShell response before parsing" : "Empty response from curl";
                 return result;
             }
 
-            var parsed = JSON.parse(content);
+            if (content.indexOf("PS_ERROR:") === 0) {
+                result.error = content.substr(0, 140);
+                return result;
+            }
+
+            if (content.charAt(0) !== "{" && content.charAt(0) !== "[") {
+                var snippet = content.replace(/\s+/g, " ").substr(0, 120);
+                result.error = "Non-JSON response: " + snippet;
+                return result;
+            }
+
+            var parsed;
+            try {
+                parsed = JSON.parse(content);
+            } catch (parseError) {
+                result.error = "Bad JSON: " + content.substr(0, 120);
+                return result;
+            }
+
             result.success = true;
             result.data    = parsed;
             result.error   = "";
@@ -121,6 +212,41 @@
         }
 
         return result;
+    }
+
+    function shouldTryNextApiRoute(res) {
+        if (!res || res.success) return false;
+        var msg = String(res.error || "").toLowerCase();
+        return msg.indexOf("not found") >= 0
+            || msg.indexOf("http 403") >= 0
+            || msg.indexOf("http 404") >= 0
+            || msg.indexOf("http 5") >= 0
+            || msg.indexOf("http ?") >= 0
+            || msg.indexOf("server returned non-json") >= 0
+            || msg.indexOf("non-json response") >= 0
+            || msg.indexOf("ps_error") >= 0
+            || msg.indexOf("empty response") >= 0
+            || msg.indexOf("curl failed") >= 0;
+    }
+
+    function apiRequest(endpoint, payload) {
+        var paths = [endpoint];
+        if (endpoint.indexOf("/api/") === 0) {
+            paths.push(endpoint.substr(4));
+        } else {
+            paths.push("/api" + endpoint);
+        }
+
+        var last = null;
+        for (var b = 0; b < API_BASES.length; b++) {
+            for (var p = 0; p < paths.length; p++) {
+                last = apiRequestSingle(API_BASES[b], paths[p], payload);
+                if (last.success) return last;
+                if (!shouldTryNextApiRoute(last)) return last;
+            }
+        }
+
+        return last || { success: false, data: null, error: "Request failed" };
     }
 
     // ─── ЛИЦЕНЗИЯ: АКТИВАЦИЯ ────────────────────────────────────────────────
@@ -262,6 +388,9 @@
             } else {
                 statusTxt.graphics.foregroundColor = statusTxt.graphics.newPen(statusTxt.graphics.PenType.SOLID_COLOR, [0.8, 0.3, 0.3, 1], 1);
                 statusTxt.text = result.msg;
+                if (result.msg && result.msg.length > 40) {
+                    alert(result.msg);
+                }
                 activateBtn.enabled = true;
                 activateBtn.text    = "Activate";
             }
