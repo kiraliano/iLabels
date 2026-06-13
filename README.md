@@ -282,3 +282,37 @@ Free to use and modify for personal and commercial projects.
 ---
 
 Made with Apple-style minimalism for maximum impact. 🍎
+
+## Тестовая лицензия для production Worker
+
+`api-worker.js` проверяет лицензии в функции `activate`: ключ из запроса нормализуется в верхний регистр, после чего Worker читает запись из Cloudflare KV по имени `license:<LICENSE>` через binding `env.KV`. Этот binding должен быть именно Cloudflare KV namespace, привязанный в `api-wrangler.jsonc` как `KV`.
+
+Для ручного создания тестовой лицензии добавьте запись в тот KV namespace, который указан в `api-wrangler.jsonc` в секции `kv_namespaces` для binding `KV`.
+
+Ключ KV:
+
+```text
+license:ILBL-TEST-AAAA-CCCC
+```
+
+Значение KV:
+
+```json
+{
+  "license": "ILBL-TEST-AAAA-CCCC",
+  "devices": [],
+  "createdAt": 1781300000000,
+  "status": "active",
+  "orderNumber": "manual-test"
+}
+```
+
+Пример команды для записи в production KV через Wrangler:
+
+```bash
+npx wrangler kv key put 'license:ILBL-TEST-AAAA-CCCC' '{"license":"ILBL-TEST-AAAA-CCCC","devices":[],"createdAt":1781300000000,"status":"active","orderNumber":"manual-test"}' --config api-wrangler.jsonc
+```
+
+После этого `/api/activate` или `/activate` сможет активировать лицензию `ILBL-TEST-AAAA-CCCC` для переданного `device`, если запись лежит в production KV namespace из binding `KV`.
+
+Важно: локальный файл `kv-test.json` сам по себе не используется Worker-ом в production. Он может служить только локальной заметкой/примером и не создаёт запись в Cloudflare KV автоматически.

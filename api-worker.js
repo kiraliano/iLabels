@@ -196,7 +196,9 @@ async function webhook(request, env) {
    ============================================================ */
 async function activate(request, env) {
   const url = new URL(request.url);
-  const body = await request.json().catch(() => ({}));
+  const body = request.method === 'POST'
+    ? await request.json().catch(() => ({}))
+    : {};
   const license = body.license || url.searchParams.get('license');
   const device = body.device || url.searchParams.get('device');
   if (!license || !device) return json({ success: false, error: 'Missing fields' }, 400);
@@ -251,7 +253,9 @@ async function activate(request, env) {
    ============================================================ */
 async function validate(request, env) {
   const url = new URL(request.url);
-  const body = await request.json().catch(() => ({}));
+  const body = request.method === 'POST'
+    ? await request.json().catch(() => ({}))
+    : {};
   const license = body.license || url.searchParams.get('license');
   const device = body.device || url.searchParams.get('device');
   if (!license || !device) return json({ valid: false }, 400);
