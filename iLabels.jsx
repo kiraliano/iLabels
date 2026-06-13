@@ -164,22 +164,25 @@
 
         var content = waitForFileText(outPath, 30, 500);
         var runnerLog = readFileText(runnerPath);
-        if (!content && runnerOutput) {
-            content = "WSH_ERROR: " + String(runnerOutput);
-        }
 
         if (!content) {
+            var runnerLogText = String(runnerLog || "");
+            var runnerLogFragment = runnerLogText.substr(0, 500);
+            if (!runnerLogFragment) {
+                runnerLogFragment = "<empty runner log>";
+            }
+
             writeFileText(debugPath,
                 "Windows Script Host did not write a response.\r\n"
-                + "Script: " + jsPath + "\r\n"
-                + "Runner: " + cmdPath + "\r\n"
-                + "Runner log: " + runnerPath + "\r\n"
-                + "Response: " + outPath + "\r\n"
+                + "jsPath: " + jsPath + "\r\n"
+                + "cmdPath: " + cmdPath + "\r\n"
+                + "runnerPath: " + runnerPath + "\r\n"
+                + "outPath: " + outPath + "\r\n"
                 + "URL: " + url + "\r\n"
                 + "system.callSystem output: " + String(runnerOutput || "") + "\r\n"
-                + "runner log content: " + String(runnerLog || "") + "\r\n"
+                + "runner log content: " + runnerLogText + "\r\n"
             );
-            return "WSH_ERROR: No response file. Debug: " + debugPath;
+            return "WSH_ERROR: No response file. Runner log: " + runnerLogFragment + ". Debug: " + debugPath;
         }
 
         // Keep jsPath/cmdPath/runnerPath/outPath for troubleshooting on Windows. They are overwritten on the next request.
