@@ -115,6 +115,14 @@
         file.close();
     }
 
+    function writeAsciiFileText(path, content) {
+        var file = new File(path);
+        file.encoding = "ASCII";
+        file.open("w");
+        file.write(content);
+        file.close();
+    }
+
     function appendLog(log, title, details) {
         return log + "\r\n--- " + title + " ---\r\n" + String(details || "") + "\r\n";
     }
@@ -126,6 +134,24 @@
 
     function commandSucceeded(log) {
         return String(log || "").indexOf("EXIT_CODE=0") >= 0;
+    }
+
+    function cmdEscape(str) {
+        return String(str)
+            .replace(/%/g, "%%")
+            .replace(/\^/g, "^^")
+            .replace(/&/g, "^&")
+            .replace(/\|/g, "^|")
+            .replace(/</g, "^<")
+            .replace(/>/g, "^>");
+    }
+
+    function looksLikeHttpPayload(content) {
+        content = String(content || "").replace(/^\uFEFF/, "").replace(/^\s+|\s+$/g, "");
+        return content.charAt(0) === "{"
+            || content.charAt(0) === "["
+            || content.indexOf("Not found") === 0
+            || content.indexOf("<") === 0;
     }
 
     function fetchHttpContent(url, isWin) {
@@ -146,15 +172,23 @@
         removeFileIfExists(runnerPath);
         removeFileIfExists(debugPath);
 
+        var directCurlCmd = "cmd.exe /d /s /c \"curl.exe -sS -L --max-time 15 " + cmdEscape(url) + " 2>&1\"";
+        var directCurlOutput = system.callSystem(directCurlCmd);
+        if (looksLikeHttpPayload(directCurlOutput)) {
+            return directCurlOutput;
+        }
+        errors = appendLog(errors, "direct curl.exe", "command: " + directCurlCmd
+            + "\r\nsystem.callSystem output: " + String(directCurlOutput || "").substr(0, 500));
+
         var curlCmd = "@echo off\r\n"
             + "curl.exe -sS -L --max-time 15 \"" + url + "\" > \"" + outPath + "\" 2> \"" + runnerPath + "\"\r\n"
             + "echo EXIT_CODE=%ERRORLEVEL%>>\"" + runnerPath + "\"\r\n";
 
-        writeFileText(cmdPath, curlCmd);
+        writeAsciiFileText(cmdPath, curlCmd);
         var curlOutput = system.callSystem("cmd.exe /c \"" + cmdPath + "\"");
         var curlRunnerLog = readFileText(runnerPath);
         var content = waitForFileText(outPath, 4, 250);
-        if (content && commandSucceeded(curlRunnerLog)) {
+        if (content && (commandSucceeded(curlRunnerLog) || looksLikeHttpPayload(content))) {
             return content;
         }
         errors = appendLog(errors, "curl.exe", "system.callSystem output: " + String(curlOutput || "")
@@ -183,7 +217,7 @@
             + "echo EXIT_CODE=%ERRORLEVEL%>>\"" + runnerPath + "\"\r\n";
 
         writeFileText(psPath, ps);
-        writeFileText(cmdPath, psCmd);
+        writeAsciiFileText(cmdPath, psCmd);
         var psOutput = system.callSystem("cmd.exe /c \"" + cmdPath + "\"");
         var psRunnerLog = readFileText(runnerPath);
         content = waitForFileText(outPath, 4, 250);
@@ -220,7 +254,7 @@
             + "echo EXIT_CODE=%ERRORLEVEL%>>\"" + runnerPath + "\"\r\n";
 
         writeFileText(jsPath, js);
-        writeFileText(cmdPath, wshCmd);
+        writeAsciiFileText(cmdPath, wshCmd);
         var wshOutput = system.callSystem("cmd.exe /c \"" + cmdPath + "\"");
         var wshRunnerLog = readFileText(runnerPath);
         content = waitForFileText(outPath, 30, 500);
