@@ -72,6 +72,20 @@
         return "'" + String(str).replace(/'/g, "''") + "'";
     }
 
+    function jsQuote(str) {
+        var s = String(str);
+        var out = String.fromCharCode(34);
+        for (var i = 0; i < s.length; i++) {
+            var code = s.charCodeAt(i);
+            if (code === 92) out += String.fromCharCode(92, 92);
+            else if (code === 34) out += String.fromCharCode(92, 34);
+            else if (code === 13) out += String.fromCharCode(92) + "r";
+            else if (code === 10) out += String.fromCharCode(92) + "n";
+            else out += s.charAt(i);
+        }
+        return out + String.fromCharCode(34);
+    }
+
     function readFileText(path) {
         var file = new File(path);
         var content = "";
@@ -107,7 +121,7 @@
         }
 
         var sep = "\\";
-        var psPath = Folder.temp.fsName + sep + "ilabels_request.ps1";
+        var jsPath = Folder.temp.fsName + sep + "ilabels_request.js";
         var cmdPath = Folder.temp.fsName + sep + "ilabels_run.cmd";
         var outPath = Folder.temp.fsName + sep + "ilabels_response.txt";
         var runnerPath = Folder.temp.fsName + sep + "ilabels_runner.txt";
@@ -122,38 +136,42 @@
         var oldDebug = new File(debugPath);
         if (oldDebug.exists) { try { oldDebug.remove(); } catch (e) {} }
 
-        var ps = "try {\r\n"
-            + "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12\r\n"
-            + "$r = Invoke-WebRequest -UseBasicParsing -TimeoutSec 15 -Uri " + psQuote(url) + "\r\n"
-            + "Set-Content -LiteralPath " + psQuote(outPath) + " -Value $r.Content -Encoding UTF8\r\n"
-            + "} catch {\r\n"
-            + "Set-Content -LiteralPath " + psQuote(outPath) + " -Value ('PS_ERROR: ' + $_.Exception.Message) -Encoding UTF8\r\n"
-            + "exit 1\r\n"
+        var js = "try {\r\n"
+            + "var xhr = new ActiveXObject('MSXML2.ServerXMLHTTP.6.0');\r\n"
+            + "xhr.setTimeouts(5000, 5000, 15000, 15000);\r\n"
+            + "xhr.open('GET', " + jsQuote(url) + ", false);\r\n"
+            + "xhr.send();\r\n"
+            + "var fso = new ActiveXObject('Scripting.FileSystemObject');\r\n"
+            + "var f = fso.CreateTextFile(" + jsQuote(outPath) + ", true, false);\r\n"
+            + "f.Write(xhr.responseText);\r\n"
+            + "f.Close();\r\n"
+            + "WScript.Quit(0);\r\n"
+            + "} catch (e) {\r\n"
+            + "var fso = new ActiveXObject('Scripting.FileSystemObject');\r\n"
+            + "var f = fso.CreateTextFile(" + jsQuote(outPath) + ", true, false);\r\n"
+            + "f.Write('WSH_ERROR: ' + (e.message || e.description || e));\r\n"
+            + "f.Close();\r\n"
+            + "WScript.Quit(1);\r\n"
             + "}\r\n";
 
         var cmd = "@echo off\r\n"
-            + "set \"PS_EXE=C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe\"\r\n"
-            + "if exist \"%PS_EXE%\" (\r\n"
-            + "  \"%PS_EXE%\" -NoProfile -ExecutionPolicy Bypass -File \"" + psPath + "\" > \"" + runnerPath + "\" 2>&1\r\n"
-            + ") else (\r\n"
-            + "  powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"" + psPath + "\" > \"" + runnerPath + "\" 2>&1\r\n"
-            + ")\r\n"
+            + "cscript.exe //NoLogo \"" + jsPath + "\" > \"" + runnerPath + "\" 2>&1\r\n"
             + "echo EXIT_CODE=%ERRORLEVEL%>>\"" + runnerPath + "\"\r\n";
 
-        writeFileText(psPath, ps);
+        writeFileText(jsPath, js);
         writeFileText(cmdPath, cmd);
         var runnerOutput = system.callSystem("cmd.exe /c \"" + cmdPath + "\"");
 
         var content = waitForFileText(outPath, 30, 500);
         var runnerLog = readFileText(runnerPath);
         if (!content && runnerOutput) {
-            content = "PS_ERROR: " + String(runnerOutput);
+            content = "WSH_ERROR: " + String(runnerOutput);
         }
 
         if (!content) {
             writeFileText(debugPath,
-                "PowerShell did not write a response.\r\n"
-                + "Script: " + psPath + "\r\n"
+                "Windows Script Host did not write a response.\r\n"
+                + "Script: " + jsPath + "\r\n"
                 + "Runner: " + cmdPath + "\r\n"
                 + "Runner log: " + runnerPath + "\r\n"
                 + "Response: " + outPath + "\r\n"
@@ -161,10 +179,10 @@
                 + "system.callSystem output: " + String(runnerOutput || "") + "\r\n"
                 + "runner log content: " + String(runnerLog || "") + "\r\n"
             );
-            return "PS_ERROR: No response file. Debug: " + debugPath;
+            return "WSH_ERROR: No response file. Debug: " + debugPath;
         }
 
-        // Keep psPath/cmdPath/runnerPath/outPath for troubleshooting on Windows. They are overwritten on the next request.
+        // Keep jsPath/cmdPath/runnerPath/outPath for troubleshooting on Windows. They are overwritten on the next request.
         return content;
     }
 
@@ -184,8 +202,8 @@
                 return result;
             }
 
-            if (content.indexOf("PS_ERROR:") === 0) {
-                result.error = content.substr(0, 140);
+            if (content.indexOf("PS_ERROR:") === 0 || content.indexOf("WSH_ERROR:") === 0) {
+                result.error = content.substr(0, 180);
                 return result;
             }
 
@@ -225,6 +243,7 @@
             || msg.indexOf("server returned non-json") >= 0
             || msg.indexOf("non-json response") >= 0
             || msg.indexOf("ps_error") >= 0
+            || msg.indexOf("wsh_error") >= 0
             || msg.indexOf("empty response") >= 0
             || msg.indexOf("curl failed") >= 0;
     }
