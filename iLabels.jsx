@@ -115,26 +115,87 @@
         file.close();
     }
 
+    function appendLog(log, title, details) {
+        return log + "\r\n--- " + title + " ---\r\n" + String(details || "") + "\r\n";
+    }
+
+    function removeFileIfExists(path) {
+        var file = new File(path);
+        if (file.exists) { try { file.remove(); } catch (e) {} }
+    }
+
+    function commandSucceeded(log) {
+        return String(log || "").indexOf("EXIT_CODE=0") >= 0;
+    }
+
     function fetchHttpContent(url, isWin) {
         if (!isWin) {
             return system.callSystem("curl -sS -L --max-time 15 \"" + url + "\" 2>&1");
         }
 
         var sep = "\\";
+        var psPath = Folder.temp.fsName + sep + "ilabels_request.ps1";
         var jsPath = Folder.temp.fsName + sep + "ilabels_request.js";
         var cmdPath = Folder.temp.fsName + sep + "ilabels_run.cmd";
         var outPath = Folder.temp.fsName + sep + "ilabels_response.txt";
         var runnerPath = Folder.temp.fsName + sep + "ilabels_runner.txt";
         var debugPath = Folder.temp.fsName + sep + "ilabels_debug.txt";
+        var errors = "";
 
-        var oldOut = new File(outPath);
-        if (oldOut.exists) { try { oldOut.remove(); } catch (e) {} }
+        removeFileIfExists(outPath);
+        removeFileIfExists(runnerPath);
+        removeFileIfExists(debugPath);
 
-        var oldRunner = new File(runnerPath);
-        if (oldRunner.exists) { try { oldRunner.remove(); } catch (e) {} }
+        var curlCmd = "@echo off\r\n"
+            + "curl.exe -sS -L --max-time 15 \"" + url + "\" > \"" + outPath + "\" 2> \"" + runnerPath + "\"\r\n"
+            + "echo EXIT_CODE=%ERRORLEVEL%>>\"" + runnerPath + "\"\r\n";
 
-        var oldDebug = new File(debugPath);
-        if (oldDebug.exists) { try { oldDebug.remove(); } catch (e) {} }
+        writeFileText(cmdPath, curlCmd);
+        var curlOutput = system.callSystem("cmd.exe /c \"" + cmdPath + "\"");
+        var curlRunnerLog = readFileText(runnerPath);
+        var content = waitForFileText(outPath, 4, 250);
+        if (content && commandSucceeded(curlRunnerLog)) {
+            return content;
+        }
+        errors = appendLog(errors, "curl.exe", "system.callSystem output: " + String(curlOutput || "")
+            + "\r\nrunner log: " + String(curlRunnerLog || "")
+            + "\r\nresponse snippet: " + String(content || "").substr(0, 500));
+
+        removeFileIfExists(outPath);
+        removeFileIfExists(runnerPath);
+
+        var ps = "$ErrorActionPreference = 'Stop'\r\n"
+            + "$url = " + psQuote(url) + "\r\n"
+            + "$out = " + psQuote(outPath) + "\r\n"
+            + "try {\r\n"
+            + "  $response = Invoke-WebRequest -Uri $url -UseBasicParsing -TimeoutSec 15\r\n"
+            + "  $encoding = New-Object System.Text.UTF8Encoding($false)\r\n"
+            + "  [System.IO.File]::WriteAllText($out, [string]$response.Content, $encoding)\r\n"
+            + "  exit 0\r\n"
+            + "} catch {\r\n"
+            + "  [Console]::Error.WriteLine('PS_ERROR: ' + $_.Exception.Message)\r\n"
+            + "  if ($_.ErrorDetails -and $_.ErrorDetails.Message) { [Console]::Error.WriteLine($_.ErrorDetails.Message) }\r\n"
+            + "  exit 1\r\n"
+            + "}\r\n";
+
+        var psCmd = "@echo off\r\n"
+            + "powershell.exe -NoProfile -ExecutionPolicy Bypass -Command \"& '" + psPath + "'\" > \"" + runnerPath + "\" 2>&1\r\n"
+            + "echo EXIT_CODE=%ERRORLEVEL%>>\"" + runnerPath + "\"\r\n";
+
+        writeFileText(psPath, ps);
+        writeFileText(cmdPath, psCmd);
+        var psOutput = system.callSystem("cmd.exe /c \"" + cmdPath + "\"");
+        var psRunnerLog = readFileText(runnerPath);
+        content = waitForFileText(outPath, 4, 250);
+        if (content && commandSucceeded(psRunnerLog)) {
+            return content;
+        }
+        errors = appendLog(errors, "PowerShell Invoke-WebRequest", "system.callSystem output: " + String(psOutput || "")
+            + "\r\nrunner log: " + String(psRunnerLog || "")
+            + "\r\nresponse snippet: " + String(content || "").substr(0, 500));
+
+        removeFileIfExists(outPath);
+        removeFileIfExists(runnerPath);
 
         var js = "try {\r\n"
             + "var xhr = new ActiveXObject('MSXML2.ServerXMLHTTP.6.0');\r\n"
@@ -154,39 +215,33 @@
             + "WScript.Quit(1);\r\n"
             + "}\r\n";
 
-        var cmd = "@echo off\r\n"
+        var wshCmd = "@echo off\r\n"
             + "cscript.exe //NoLogo \"" + jsPath + "\" > \"" + runnerPath + "\" 2>&1\r\n"
             + "echo EXIT_CODE=%ERRORLEVEL%>>\"" + runnerPath + "\"\r\n";
 
         writeFileText(jsPath, js);
-        writeFileText(cmdPath, cmd);
-        var runnerOutput = system.callSystem("cmd.exe /c \"" + cmdPath + "\"");
-
-        var content = waitForFileText(outPath, 30, 500);
-        var runnerLog = readFileText(runnerPath);
-
-        if (!content) {
-            var runnerLogText = String(runnerLog || "");
-            var runnerLogFragment = runnerLogText.substr(0, 500);
-            if (!runnerLogFragment) {
-                runnerLogFragment = "<empty runner log>";
-            }
-
-            writeFileText(debugPath,
-                "Windows Script Host did not write a response.\r\n"
-                + "jsPath: " + jsPath + "\r\n"
-                + "cmdPath: " + cmdPath + "\r\n"
-                + "runnerPath: " + runnerPath + "\r\n"
-                + "outPath: " + outPath + "\r\n"
-                + "URL: " + url + "\r\n"
-                + "system.callSystem output: " + String(runnerOutput || "") + "\r\n"
-                + "runner log content: " + runnerLogText + "\r\n"
-            );
-            return "WSH_ERROR: No response file. Runner log: " + runnerLogFragment + ". Debug: " + debugPath;
+        writeFileText(cmdPath, wshCmd);
+        var wshOutput = system.callSystem("cmd.exe /c \"" + cmdPath + "\"");
+        var wshRunnerLog = readFileText(runnerPath);
+        content = waitForFileText(outPath, 30, 500);
+        if (content && commandSucceeded(wshRunnerLog) && content.indexOf("WSH_ERROR:") !== 0) {
+            return content;
         }
+        errors = appendLog(errors, "cscript.exe ActiveX", "system.callSystem output: " + String(wshOutput || "")
+            + "\r\nrunner log: " + String(wshRunnerLog || "")
+            + "\r\nresponse snippet: " + String(content || "").substr(0, 500));
 
-        // Keep jsPath/cmdPath/runnerPath/outPath for troubleshooting on Windows. They are overwritten on the next request.
-        return content;
+        writeFileText(debugPath,
+            "All Windows HTTP fallbacks failed.\r\n"
+            + "PowerShell: " + psPath + "\r\n"
+            + "WSH Script: " + jsPath + "\r\n"
+            + "Runner: " + cmdPath + "\r\n"
+            + "Runner log: " + runnerPath + "\r\n"
+            + "Response: " + outPath + "\r\n"
+            + "URL: " + url + "\r\n"
+            + errors
+        );
+        return "WSH_ERROR: All Windows HTTP fallbacks failed. Debug: " + debugPath + errors;
     }
 
     function apiRequestSingle(baseUrl, endpoint, payload) {
@@ -201,12 +256,12 @@
             content = content.replace(/^\s+|\s+$/g, "");
 
             if (!content) {
-                result.error = isWin ? "Empty PowerShell response before parsing" : "Empty response from curl";
+                result.error = isWin ? "Empty Windows HTTP response before parsing" : "Empty response from curl";
                 return result;
             }
 
             if (content.indexOf("PS_ERROR:") === 0 || content.indexOf("WSH_ERROR:") === 0) {
-                result.error = content.substr(0, 180);
+                result.error = content.substr(0, 1000);
                 return result;
             }
 
