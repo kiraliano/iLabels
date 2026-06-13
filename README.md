@@ -316,3 +316,11 @@ npx wrangler kv key put 'license:ILBL-TEST-AAAA-CCCC' '{"license":"ILBL-TEST-AAA
 После этого `/api/activate` или `/activate` сможет активировать лицензию `ILBL-TEST-AAAA-CCCC` для переданного `device`, если запись лежит в production KV namespace из binding `KV`.
 
 Важно: локальный файл `kv-test.json` сам по себе не используется Worker-ом в production. Он может служить только локальной заметкой/примером и не создаёт запись в Cloudflare KV автоматически.
+
+Если `https://ilabels-api.iosflowzy.workers.dev/api/activate?...` возвращает plain text `Not found`, значит на Cloudflare сейчас опубликована старая или другая версия API Worker без маршрута `/api/activate`. Сначала задеплойте API Worker:
+
+```bash
+npx wrangler deploy --config api-wrangler.jsonc
+```
+
+После успешного деплоя этот URL должен вернуть JSON, например `{"success":false,"error":"License not found"}` для отсутствующей лицензии или `{"success":true,...}` для активной записи в KV.
