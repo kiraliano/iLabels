@@ -128,6 +128,14 @@
         return String(log || "").indexOf("EXIT_CODE=0") >= 0;
     }
 
+    function looksLikeHttpPayload(content) {
+        content = String(content || "").replace(/^\uFEFF/, "").replace(/^\s+|\s+$/g, "");
+        return content.charAt(0) === "{"
+            || content.charAt(0) === "["
+            || content.indexOf("Not found") === 0
+            || content.indexOf("<") === 0;
+    }
+
     function fetchHttpContent(url, isWin) {
         if (!isWin) {
             return system.callSystem("curl -sS -L --max-time 15 \"" + url + "\" 2>&1");
@@ -146,6 +154,14 @@
         removeFileIfExists(runnerPath);
         removeFileIfExists(debugPath);
 
+        var directCurlCmd = "cmd.exe /d /s /c \"curl.exe -sS -L --max-time 15 " + jsQuote(url) + " 2>&1\"";
+        var directCurlOutput = system.callSystem(directCurlCmd);
+        if (looksLikeHttpPayload(directCurlOutput)) {
+            return directCurlOutput;
+        }
+        errors = appendLog(errors, "direct curl.exe", "command: " + directCurlCmd
+            + "\r\nsystem.callSystem output: " + String(directCurlOutput || "").substr(0, 500));
+
         var curlCmd = "@echo off\r\n"
             + "curl.exe -sS -L --max-time 15 \"" + url + "\" > \"" + outPath + "\" 2> \"" + runnerPath + "\"\r\n"
             + "echo EXIT_CODE=%ERRORLEVEL%>>\"" + runnerPath + "\"\r\n";
@@ -154,7 +170,7 @@
         var curlOutput = system.callSystem("cmd.exe /c \"" + cmdPath + "\"");
         var curlRunnerLog = readFileText(runnerPath);
         var content = waitForFileText(outPath, 4, 250);
-        if (content && commandSucceeded(curlRunnerLog)) {
+        if (content && (commandSucceeded(curlRunnerLog) || looksLikeHttpPayload(content))) {
             return content;
         }
         errors = appendLog(errors, "curl.exe", "system.callSystem output: " + String(curlOutput || "")
