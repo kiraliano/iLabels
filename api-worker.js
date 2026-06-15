@@ -15,7 +15,7 @@ export default {
     if (request.method === 'OPTIONS') return new Response(null, { headers: CORS });
 
     let res;
-    const p = url.pathname;
+    const p = normalizePath(url.pathname);
 
     if (p === '/api/create-order'    && request.method === 'POST') res = await createOrder(request, env);
     else if (p === '/api/status'     && request.method === 'GET')  res = await getStatus(url, env);
@@ -24,7 +24,7 @@ export default {
     else if ((p === '/api/activate' || p === '/activate') && (request.method === 'POST' || request.method === 'GET')) res = await activate(request, env);
     else if ((p === '/api/validate' || p === '/validate') && (request.method === 'POST' || request.method === 'GET')) res = await validate(request, env);
     else if (p === '/admin/reset'    && request.method === 'POST') res = await adminReset(request, env);
-    else res = new Response('Not found', { status: 404 });
+    else res = json({ error: 'Not found', path: url.pathname }, 404);
 
     // Добавляем CORS ко всем ответам
     const h = new Headers(res.headers);
@@ -32,6 +32,11 @@ export default {
     return new Response(res.body, { status: res.status, headers: h });
   }
 };
+
+function normalizePath(pathname) {
+  if (pathname.length > 1 && pathname.endsWith('/')) return pathname.slice(0, -1);
+  return pathname;
+}
 
 /* ============================================================
    POST /api/create-order
@@ -207,7 +212,17 @@ async function activate(request, env) {
   const raw = await env.KV.get(`license:${key}`);
   if (!raw) return json({ success: false, error: 'License not found' });
 
-  const data = normalizeLicenseData(JSON.parse(raw), key);
+  const parsed = parseJsonRecord(raw);
+  if (!parsed.ok) {
+    return json({
+      success: false,
+      valid: false,
+      error: 'invalid_license_record',
+      message: 'License record is not valid JSON',
+    }, 500);
+  }
+
+  const data = normalizeLicenseData(parsed.value, key);
   if (data.status !== 'active') {
     return json({
       success: false,
@@ -264,7 +279,10 @@ async function validate(request, env) {
   const raw = await env.KV.get(`license:${key}`);
   if (!raw) return json({ valid: false });
 
-  const data = normalizeLicenseData(JSON.parse(raw), key);
+  const parsed = parseJsonRecord(raw);
+  if (!parsed.ok) return json({ valid: false, error: 'invalid_license_record' }, 500);
+
+  const data = normalizeLicenseData(parsed.value, key);
   if (data.status !== 'active') return json({ valid: false });
 
   return json({ valid: data.devices.some(item => item.id === device) });
@@ -288,7 +306,10 @@ async function adminReset(request, env) {
   const raw = await env.KV.get(`license:${key}`);
   if (!raw) return json({ ok: false, error: 'License not found' });
 
-  const data = normalizeLicenseData(JSON.parse(raw), key);
+  const parsed = parseJsonRecord(raw);
+  if (!parsed.ok) return json({ ok: false, error: 'Invalid license record' }, 500);
+
+  const data = normalizeLicenseData(parsed.value, key);
   data.devices = [];
   await env.KV.put(`license:${key}`, JSON.stringify(data));
 
@@ -345,6 +366,14 @@ function normalizeLicenseData(data, licenseKey) {
   delete normalized.maxActivations;
 
   return normalized;
+}
+
+function parseJsonRecord(raw) {
+  try {
+    return { ok: true, value: JSON.parse(raw) };
+  } catch {
+    return { ok: false, value: null };
+  }
 }
 
 async function verifyPlisio(body, secret) {

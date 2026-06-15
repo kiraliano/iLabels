@@ -307,10 +307,18 @@ license:ILBL-TEST-AAAA-CCCC
 }
 ```
 
-Пример команды для записи в production KV через Wrangler:
+Пример команды для записи в production KV через Wrangler 4.x:
 
 ```bash
-npx wrangler kv key put 'license:ILBL-TEST-AAAA-CCCC' '{"license":"ILBL-TEST-AAAA-CCCC","devices":[],"createdAt":1781300000000,"status":"active","orderNumber":"manual-test"}' --config api-wrangler.jsonc
+npx wrangler kv key put 'license:ILBL-TEST-AAAA-CCCC' '{"license":"ILBL-TEST-AAAA-CCCC","devices":[],"createdAt":1781300000000,"status":"active","orderNumber":"manual-test"}' --binding KV --remote --config api-wrangler.jsonc
+```
+
+PowerShell-вариант той же команды. Самый надёжный способ — записать JSON во временный файл и передать его через `--path`, чтобы PowerShell не сломал кавычки внутри JSON:
+
+```powershell
+$json = '{"license":"ILBL-TEST-AAAA-CCCC","devices":[],"createdAt":1781300000000,"status":"active","orderNumber":"manual-test"}'
+Set-Content -Path .\license-test.json -Value $json -Encoding utf8
+npx wrangler kv key put "license:ILBL-TEST-AAAA-CCCC" --path .\license-test.json --binding KV --remote --config api-wrangler.jsonc
 ```
 
 После этого `/api/activate` или `/activate` сможет активировать лицензию `ILBL-TEST-AAAA-CCCC` для переданного `device`, если запись лежит в production KV namespace из binding `KV`.
