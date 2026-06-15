@@ -21,8 +21,9 @@ export default {
     else if (p === '/api/status'     && request.method === 'GET')  res = await getStatus(url, env);
     else if (p === '/api/download'   && request.method === 'GET')  res = await download(url, env);
     else if (p === '/api/plisio/webhook' && request.method === 'POST') res = await webhook(request, env);
-    else if ((p === '/api/activate' || p === '/activate') && (request.method === 'POST' || request.method === 'GET')) res = await activate(request, env);
-    else if ((p === '/api/validate' || p === '/validate') && (request.method === 'POST' || request.method === 'GET')) res = await validate(request, env);
+    else if ((p === '/api/activate' || p === '/activate' || p === '/api/lease' || p === '/lease') && (request.method === 'POST' || request.method === 'GET')) res = await acquireLease(request, env);
+    else if ((p === '/api/validate' || p === '/validate' || p === '/api/heartbeat' || p === '/heartbeat') && (request.method === 'POST' || request.method === 'GET')) res = await validate(request, env);
+    else if ((p === '/api/release' || p === '/release') && (request.method === 'POST' || request.method === 'GET')) res = await releaseLease(request, env);
     else if (p === '/admin/reset'    && request.method === 'POST') res = await adminReset(request, env);
     else res = json({ error: 'Not found', path: url.pathname }, 404);
 
@@ -167,6 +168,9 @@ async function webhook(request, env) {
   // Сохраняем лицензию в KV
   await env.KV.put(`license:${licenseKey}`, JSON.stringify({
     license:   licenseKey,
+    licenseType: 'floating',
+    maxSeats:  1,
+    leases:    [],
     devices:   [],
     createdAt: now,
     status:    'active',
@@ -193,86 +197,55 @@ async function webhook(request, env) {
 }
 
 /* ============================================================
-   GET/POST /api/activate  { license, device }
-   Плагин вызывает при первом запуске.
+   GET/POST /api/activate|/api/lease  { license, device }
+   Плагин вызывает при запуске панели: арендует плавающее место
+   или продлевает уже существующую аренду этого устройства.
    Важно: Cloudflare KV не даёт атомарных операций, поэтому при
-   одновременной первой активации с разных устройств теоретически возможна
-   гонка. Не добавляем Durable Object для первого релиза без реальных жалоб.
+   одновременной аренде последних мест теоретически возможна гонка.
    ============================================================ */
-async function activate(request, env) {
-  const url = new URL(request.url);
-  const body = request.method === 'POST'
-    ? await request.json().catch(() => ({}))
-    : {};
-  const license = body.license || url.searchParams.get('license');
-  const device = body.device || url.searchParams.get('device');
+async function acquireLease(request, env) {
+  const { license, device } = await readLicenseRequest(request);
   if (!license || !device) return json({ success: false, error: 'Missing fields' }, 400);
 
   const key = license.trim().toUpperCase();
   const raw = await env.KV.get(`license:${key}`);
-  if (!raw) return json({ success: false, error: 'License not found' });
+  if (!raw) return json({ success: false, valid: false, error: 'license_not_found', message: 'License not found' });
 
   const parsed = parseJsonRecord(raw);
-  if (!parsed.ok) {
-    return json({
-      success: false,
-      valid: false,
-      error: 'invalid_license_record',
-      message: 'License record is not valid JSON',
-    }, 500);
-  }
+  if (!parsed.ok) return json({ success: false, valid: false, error: 'invalid_license_record', message: 'License record is not valid JSON' }, 500);
 
   const data = normalizeLicenseData(parsed.value, key);
-  if (data.status !== 'active') {
-    return json({
-      success: false,
-      valid: false,
-      error: 'license_disabled',
-      message: 'License disabled',
-    }, 403);
+  if (data.status !== 'active') return json({ success: false, valid: false, error: 'license_disabled', message: 'License disabled' }, 403);
+
+  const now = Date.now();
+  const leaseMs = getLeaseMs(env);
+  data.leases = pruneExpiredLeases(data.leases, now);
+
+  const existingLease = data.leases.find(item => item.device === device);
+  if (existingLease) {
+    existingLease.updatedAt = now;
+    existingLease.expiresAt = now + leaseMs;
+    await env.KV.put(`license:${key}`, JSON.stringify(data));
+    return json({ success: true, valid: true, floating: true, message: 'lease renewed', leaseExpiresAt: existingLease.expiresAt, remaining: Math.max(0, data.maxSeats - data.leases.length) });
   }
 
-  const existingDevice = data.devices.find(item => item.id === device);
-  if (existingDevice) {
-    return json({
-      success: true,
-      valid: true,
-      message: 'already active',
-      remaining: Math.max(0, 2 - data.devices.length),
-    });
+  if (data.leases.length >= data.maxSeats) {
+    return json({ success: false, valid: false, floating: true, error: 'no_floating_seats', message: 'No floating seats available', seats: data.maxSeats, activeLeases: data.leases.length }, 423);
   }
 
-  if (data.devices.length >= 2) {
-    return json({
-      success: false,
-      valid: false,
-      error: 'activation_limit_reached',
-      message: 'activation limit reached',
-    }, 403);
-  }
-
-  data.devices.push({ id: device, activatedAt: Date.now() });
+  const lease = { device, acquiredAt: now, updatedAt: now, expiresAt: now + leaseMs };
+  data.leases.push(lease);
   await env.KV.put(`license:${key}`, JSON.stringify(data));
 
-  return json({
-    success: true,
-    valid: true,
-    message: 'activated',
-    remaining: Math.max(0, 2 - data.devices.length),
-  });
+  return json({ success: true, valid: true, floating: true, message: 'lease acquired', leaseExpiresAt: lease.expiresAt, remaining: Math.max(0, data.maxSeats - data.leases.length) });
 }
 
 /* ============================================================
-   GET/POST /api/validate  { license, device }
-   Плагин вызывает раз в неделю тихо.
+   GET/POST /api/validate|/api/heartbeat  { license, device }
+   Проверяет и продлевает активную плавающую аренду.
    ============================================================ */
 async function validate(request, env) {
-  const url = new URL(request.url);
-  const body = request.method === 'POST'
-    ? await request.json().catch(() => ({}))
-    : {};
-  const license = body.license || url.searchParams.get('license');
-  const device = body.device || url.searchParams.get('device');
+  const { license, device } = await readLicenseRequest(request);
   if (!license || !device) return json({ valid: false }, 400);
 
   const key = license.trim().toUpperCase();
@@ -285,7 +258,36 @@ async function validate(request, env) {
   const data = normalizeLicenseData(parsed.value, key);
   if (data.status !== 'active') return json({ valid: false });
 
-  return json({ valid: data.devices.some(item => item.id === device) });
+  const now = Date.now();
+  data.leases = pruneExpiredLeases(data.leases, now);
+  const lease = data.leases.find(item => item.device === device);
+  if (!lease) {
+    await env.KV.put(`license:${key}`, JSON.stringify(data));
+    return json({ valid: false, floating: true, error: 'lease_expired' });
+  }
+
+  lease.updatedAt = now;
+  lease.expiresAt = now + getLeaseMs(env);
+  await env.KV.put(`license:${key}`, JSON.stringify(data));
+  return json({ valid: true, floating: true, leaseExpiresAt: lease.expiresAt, remaining: Math.max(0, data.maxSeats - data.leases.length) });
+}
+
+async function releaseLease(request, env) {
+  const { license, device } = await readLicenseRequest(request);
+  if (!license || !device) return json({ ok: false, error: 'Missing fields' }, 400);
+
+  const key = license.trim().toUpperCase();
+  const raw = await env.KV.get(`license:${key}`);
+  if (!raw) return json({ ok: true, released: false });
+
+  const parsed = parseJsonRecord(raw);
+  if (!parsed.ok) return json({ ok: false, error: 'Invalid license record' }, 500);
+
+  const data = normalizeLicenseData(parsed.value, key);
+  const before = data.leases.length;
+  data.leases = data.leases.filter(item => item.device !== device);
+  await env.KV.put(`license:${key}`, JSON.stringify(data));
+  return json({ ok: true, released: data.leases.length !== before });
 }
 
 /* ============================================================
@@ -311,6 +313,7 @@ async function adminReset(request, env) {
 
   const data = normalizeLicenseData(parsed.value, key);
   data.devices = [];
+  data.leases = [];
   await env.KV.put(`license:${key}`, JSON.stringify(data));
 
   return json({ ok: true, message: `Reset: ${key}` });
@@ -319,6 +322,35 @@ async function adminReset(request, env) {
 /* ============================================================
    HELPERS
    ============================================================ */
+
+async function readLicenseRequest(request) {
+  const url = new URL(request.url);
+  const body = request.method === 'POST' ? await request.json().catch(() => ({})) : {};
+  return {
+    license: body.license || url.searchParams.get('license'),
+    device: body.device || url.searchParams.get('device'),
+  };
+}
+
+function getLeaseMs(env) {
+  const minutes = Number(env.FLOATING_LEASE_MINUTES || 30);
+  const safeMinutes = Number.isFinite(minutes) ? Math.min(Math.max(minutes, 5), 24 * 60) : 30;
+  return safeMinutes * 60 * 1000;
+}
+
+function pruneExpiredLeases(leases, now) {
+  return (Array.isArray(leases) ? leases : [])
+    .map(lease => {
+      if (typeof lease === 'string') return { device: lease, acquiredAt: null, updatedAt: null, expiresAt: 0 };
+      if (lease && typeof lease === 'object' && (lease.device || lease.id)) {
+        const device = String(lease.device || lease.id);
+        return { ...lease, device, expiresAt: Number(lease.expiresAt || 0) };
+      }
+      return null;
+    })
+    .filter(lease => lease && lease.device && lease.expiresAt > now);
+}
+
 function generateOrderId() {
   const bytes = new Uint8Array(16);
   crypto.getRandomValues(bytes);
@@ -346,6 +378,9 @@ function normalizeLicenseData(data, licenseKey) {
     ...data,
     license: data.license || licenseKey,
     status: data.status || 'active',
+    licenseType: data.licenseType || 'floating',
+    maxSeats: Math.max(1, Number(data.maxSeats || data.seats || data.maxActivations || 1)),
+    leases: Array.isArray(data.leases) ? data.leases : [],
     devices: Array.isArray(data.devices) ? data.devices : [],
   };
 
@@ -369,11 +404,50 @@ function normalizeLicenseData(data, licenseKey) {
 }
 
 function parseJsonRecord(raw) {
+  const text = normalizeKvText(raw);
   try {
-    return { ok: true, value: JSON.parse(raw) };
+    return { ok: true, value: JSON.parse(text) };
   } catch {
+    const repaired = parseLooseKvObject(text);
+    if (repaired) return { ok: true, value: repaired };
     return { ok: false, value: null };
   }
+}
+
+function normalizeKvText(raw) {
+  return String(raw || '')
+    .replace(/^\uFEFF/, '')
+    .replace(/\u0000/g, '')
+    .trim();
+}
+
+function parseLooseKvObject(raw) {
+  const text = normalizeKvText(raw);
+  if (!text.startsWith('{') || !text.endsWith('}')) return null;
+
+  const body = text.slice(1, -1).trim();
+  if (!body) return {};
+
+  const data = {};
+  const parts = body.split(',');
+  for (const part of parts) {
+    const index = part.indexOf(':');
+    if (index <= 0) return null;
+
+    const key = part.slice(0, index).trim().replace(/^['"]|['"]$/g, '');
+    const value = part.slice(index + 1).trim();
+    if (!key) return null;
+
+    if (value === '[]') data[key] = [];
+    else if (value === '{}') data[key] = {};
+    else if (value === 'true') data[key] = true;
+    else if (value === 'false') data[key] = false;
+    else if (value === 'null') data[key] = null;
+    else if (/^-?\d+(\.\d+)?$/.test(value)) data[key] = Number(value);
+    else data[key] = value.replace(/^['"]|['"]$/g, '');
+  }
+
+  return data;
 }
 
 async function verifyPlisio(body, secret) {

@@ -295,33 +295,65 @@ Made with Apple-style minimalism for maximum impact. 🍎
 license:ILBL-TEST-AAAA-CCCC
 ```
 
-Значение KV:
+Значение KV для новой floating-системы:
 
 ```json
 {
   "license": "ILBL-TEST-AAAA-CCCC",
-  "devices": [],
+  "licenseType": "floating",
+  "maxSeats": 1,
+  "leases": [],
   "createdAt": 1781300000000,
   "status": "active",
   "orderNumber": "manual-test"
 }
 ```
 
-Пример команды для записи в production KV через Wrangler 4.x:
+Самый надёжный способ записи — сначала сохранить JSON в файл, а затем передать его Wrangler через `--path`. Так shell или PowerShell не смогут удалить кавычки из JSON и превратить его в невалидную строку вида `{license:ILBL-...}`.
+
+Bash/macOS/Linux/Git Bash:
 
 ```bash
-npx wrangler kv key put 'license:ILBL-TEST-AAAA-CCCC' '{"license":"ILBL-TEST-AAAA-CCCC","devices":[],"createdAt":1781300000000,"status":"active","orderNumber":"manual-test"}' --binding KV --remote --config api-wrangler.jsonc
+cat > license-test.json <<'JSON'
+{
+  "license": "ILBL-TEST-AAAA-CCCC",
+  "licenseType": "floating",
+  "maxSeats": 1,
+  "leases": [],
+  "createdAt": 1781300000000,
+  "status": "active",
+  "orderNumber": "manual-test"
+}
+JSON
+
+npx wrangler kv key put "license:ILBL-TEST-AAAA-CCCC" --path ./license-test.json --binding KV --remote --config api-wrangler.jsonc
 ```
 
-PowerShell-вариант той же команды. Самый надёжный способ — записать JSON во временный файл и передать его через `--path`, чтобы PowerShell не сломал кавычки внутри JSON:
+PowerShell:
 
 ```powershell
-$json = '{"license":"ILBL-TEST-AAAA-CCCC","devices":[],"createdAt":1781300000000,"status":"active","orderNumber":"manual-test"}'
-Set-Content -Path .\license-test.json -Value $json -Encoding utf8
+@'
+{
+  "license": "ILBL-TEST-AAAA-CCCC",
+  "licenseType": "floating",
+  "maxSeats": 1,
+  "leases": [],
+  "createdAt": 1781300000000,
+  "status": "active",
+  "orderNumber": "manual-test"
+}
+'@ | Set-Content -Path .\license-test.json -Encoding utf8
+
 npx wrangler kv key put "license:ILBL-TEST-AAAA-CCCC" --path .\license-test.json --binding KV --remote --config api-wrangler.jsonc
 ```
 
-После этого `/api/activate` или `/activate` сможет активировать лицензию `ILBL-TEST-AAAA-CCCC` для переданного `device`, если запись лежит в production KV namespace из binding `KV`.
+Проверить, что в KV записался именно JSON с кавычками, можно командой:
+
+```bash
+npx wrangler kv key get "license:ILBL-TEST-AAAA-CCCC" --binding KV --remote --config api-wrangler.jsonc
+```
+
+После этого `/api/activate` или `/activate` сможет выдать floating lease для лицензии `ILBL-TEST-AAAA-CCCC`, если запись лежит в production KV namespace из binding `KV`.
 
 Важно: локальный файл `kv-test.json` сам по себе не используется Worker-ом в production. Он может служить только локальной заметкой/примером и не создаёт запись в Cloudflare KV автоматически.
 
@@ -332,3 +364,38 @@ npx wrangler deploy --config api-wrangler.jsonc
 ```
 
 После успешного деплоя этот URL должен вернуть JSON, например `{"success":false,"error":"License not found"}` для отсутствующей лицензии или `{"success":true,...}` для активной записи в KV.
+
+### Troubleshooting: `invalid_license_record` after fixing KV JSON
+
+If Wrangler `kv key get` shows valid JSON but the API still returns `invalid_license_record`, deploy the latest API Worker and retry. The Worker now also repairs the earlier broken one-line test value format (`{license:...,licenseType:...}`) on the next successful lease write, but production must be running the latest `api-worker.js` for that fallback to exist.
+
+```bash
+npx wrangler deploy --config api-wrangler.jsonc
+```
+
+On Windows PowerShell, prefer `curl.exe` instead of `curl` because `curl` can be an alias for `Invoke-WebRequest`.
+
+## 🔐 Floating License System
+
+iLabels uses a floating-seat model inspired by Templater/DataclayLM: a license key does not permanently bind to a computer. Instead, each running After Effects panel leases one seat from the license pool and returns it when the panel closes.
+
+### Server behavior
+
+- Paid orders create `license:<key>` records with `licenseType: "floating"`, `maxSeats: 1`, and an empty `leases` list.
+- `GET/POST /api/activate` and `/api/lease` acquire or renew a seat for `{ license, device }`.
+- `GET/POST /api/validate` and `/api/heartbeat` validate and extend the current lease.
+- `GET/POST /api/release` releases the current device's lease.
+- Expired leases are pruned automatically on acquire/validate, so seats are returned even if After Effects or the workstation crashes.
+- The lease duration defaults to 30 minutes and can be configured with the Cloudflare Worker environment variable `FLOATING_LEASE_MINUTES` (clamped to 5 minutes–24 hours).
+
+### After Effects panel behavior
+
+- On panel start, `iLabels.jsx` must successfully validate/renew an existing lease or acquire a new one before showing the main UI.
+- If all floating seats are in use, the activation screen is shown and the API returns `no_floating_seats`.
+- When a floating palette window closes, the panel calls `/release` to return the seat immediately. Docked ScriptUI panels may not always fire a close event, so the server-side expiration remains the safety mechanism.
+
+### Operational notes
+
+- Use `/admin/reset` with the admin bearer token to clear both legacy device activations and active floating leases for a license.
+- Existing KV records with old `devices` fields are normalized at runtime; new license checks use `leases` and `maxSeats`.
+- This project does **not** use the aescripts floating-license server. The Cloudflare Worker is the license manager for iLabels.
