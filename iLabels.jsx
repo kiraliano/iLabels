@@ -11,7 +11,7 @@
         "https://ilabels.iosflowzy.workers.dev"
     ];
     var SETTINGS_SECT   = "iLabels";
-    var VALIDATE_DAYS   = 7; // валидация раз в неделю
+    var VALIDATE_DAYS   = 7; // fallback only; floating leases renew on every panel start
 
     // ─── УТИЛИТЫ ─────────────────────────────────────────────────────────────
 
@@ -372,7 +372,7 @@
         if (data && data.success) {
             saveLicenseKey(key);
             saveLastValidated();
-            return { ok: true, msg: "Activated! Remaining: " + (data.remaining || 0) };
+            return { ok: true, msg: "Floating license acquired. Remaining seats: " + (data.remaining || 0) };
         }
 
         return { ok: false, msg: data ? (data.message || data.error || "Activation denied") : "Unknown error" };
@@ -384,7 +384,7 @@
         var deviceId = getDeviceId();
         var res = apiRequest("/validate", { license: key, device: deviceId });
 
-        if (!res.success) return true; // если сеть недоступна — не блокируем
+        if (!res.success) return false; // floating license must be reachable to lease/renew a seat
         return res.data && res.data.valid === true;
     }
 
@@ -401,17 +401,29 @@
 
     // ─── ЛИЦЕНЗИЯ: СТАТУС ────────────────────────────────────────────────────
 
+    function releaseLicenseLease() {
+        var key = getLicenseKey();
+        if (!key) return;
+        apiRequest("/release", { license: key, device: getDeviceId() });
+    }
+
     function checkActivation() {
         var key = getLicenseKey();
         if (!key) return false;
 
-        if (needsValidation()) {
-            var valid = validateLicense(key);
-            if (valid) saveLastValidated();
-            else { clearLicense(); return false; }
+        // Floating licensing: every panel start must hold a live server lease.
+        // First try to renew an existing lease; if it expired, try to acquire
+        // a fresh seat from the pool before showing the activation screen.
+        if (validateLicense(key)) {
+            saveLastValidated();
+            return true;
         }
 
-        return true;
+        var lease = activateLicense(key);
+        if (lease.ok) return true;
+
+        clearLicense();
+        return false;
     }
 
     // ─── UI: ОКНО АКТИВАЦИИ ──────────────────────────────────────────────────
@@ -435,7 +447,7 @@
         var titleTxt = titleGrp.add("statictext", undefined, "iLabels");
         titleTxt.graphics.font = ScriptUI.newFont("dialog", "BOLD", 18);
 
-        var subTxt = titleGrp.add("statictext", undefined, "Enter your license key");
+        var subTxt = titleGrp.add("statictext", undefined, "Enter your floating license key");
         subTxt.graphics.foregroundColor = subTxt.graphics.newPen(subTxt.graphics.PenType.SOLID_COLOR, [0.5, 0.5, 0.5, 1], 1);
 
         // Поле ввода ключа
@@ -494,7 +506,7 @@
 
             if (result.ok) {
                 statusTxt.graphics.foregroundColor = statusTxt.graphics.newPen(statusTxt.graphics.PenType.SOLID_COLOR, [0.2, 0.7, 0.3, 1], 1);
-                statusTxt.text = "Success! Reopen the panel.";
+                statusTxt.text = "Seat acquired! Reopen the panel.";
                 activateBtn.text = "Restart panel to continue";
             } else {
                 statusTxt.graphics.foregroundColor = statusTxt.graphics.newPen(statusTxt.graphics.PenType.SOLID_COLOR, [0.8, 0.3, 0.3, 1], 1);
@@ -732,6 +744,7 @@
 
         panel.onResizing = panel.onResize = relayout;
         panel.onShow = relayout;
+        panel.onClose = function () { releaseLicenseLease(); return true; };
         if (!(host instanceof Panel)) { panel.center(); panel.show(); }
         panel.layout.layout(true);
         return panel;

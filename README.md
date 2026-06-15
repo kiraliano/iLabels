@@ -332,3 +332,28 @@ npx wrangler deploy --config api-wrangler.jsonc
 ```
 
 После успешного деплоя этот URL должен вернуть JSON, например `{"success":false,"error":"License not found"}` для отсутствующей лицензии или `{"success":true,...}` для активной записи в KV.
+
+## 🔐 Floating License System
+
+iLabels uses a floating-seat model inspired by Templater/DataclayLM: a license key does not permanently bind to a computer. Instead, each running After Effects panel leases one seat from the license pool and returns it when the panel closes.
+
+### Server behavior
+
+- Paid orders create `license:<key>` records with `licenseType: "floating"`, `maxSeats: 1`, and an empty `leases` list.
+- `GET/POST /api/activate` and `/api/lease` acquire or renew a seat for `{ license, device }`.
+- `GET/POST /api/validate` and `/api/heartbeat` validate and extend the current lease.
+- `GET/POST /api/release` releases the current device's lease.
+- Expired leases are pruned automatically on acquire/validate, so seats are returned even if After Effects or the workstation crashes.
+- The lease duration defaults to 30 minutes and can be configured with the Cloudflare Worker environment variable `FLOATING_LEASE_MINUTES` (clamped to 5 minutes–24 hours).
+
+### After Effects panel behavior
+
+- On panel start, `iLabels.jsx` must successfully validate/renew an existing lease or acquire a new one before showing the main UI.
+- If all floating seats are in use, the activation screen is shown and the API returns `no_floating_seats`.
+- When a floating palette window closes, the panel calls `/release` to return the seat immediately. Docked ScriptUI panels may not always fire a close event, so the server-side expiration remains the safety mechanism.
+
+### Operational notes
+
+- Use `/admin/reset` with the admin bearer token to clear both legacy device activations and active floating leases for a license.
+- Existing KV records with old `devices` fields are normalized at runtime; new license checks use `leases` and `maxSeats`.
+- This project does **not** use the aescripts floating-license server. The Cloudflare Worker is the license manager for iLabels.
