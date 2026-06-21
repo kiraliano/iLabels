@@ -1,0 +1,1059 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>iLabels</title>
+<style>
+
+/* ╔══════════════════════════════════════════════════════╗
+   ║  СЕКЦИЯ 1 — КАРТОЧКИ                                 ║
+   ╚══════════════════════════════════════════════════════╝ */
+:root {
+  --card-bg:           #F5F5F7;
+  --card-radius:       20px;
+  --card-padding-v:    36px;
+  --card-padding-h:    28px;
+  --card-gap:          18px;
+  --card-max-w:        420px;
+
+  --pill-radius:       100px;
+  --pill-bg:           #C7C7CC;
+  --pill-color:        #5A5A5F;
+  --pill-font-size:    15px;
+  --pill-padding-v:    14px;
+  --pill-padding-h:    24px;
+
+  --input-bg:          #E5E5EA;
+  --input-color:       #8E8E93;
+  --input-font-size:   15px;
+
+  --title-color:       #1D1D1F;
+  --body-color:        #3A3A3C;
+  --sub-color:         #6E6E73;
+  --page-bg:           #FFFFFF;
+}
+
+/* ╔══════════════════════════════════════════════════════╗
+   ║  СЕКЦИЯ 2 — СТРЕЛКИ НАВИГАЦИИ                        ║
+   ║  Меняй цвета и размеры стрелок здесь                 ║
+   ╚══════════════════════════════════════════════════════╝ */
+:root {
+  /* Стрелка активная (есть куда листать) */
+  --arrow-color-active:   #1d1d1f;
+  /* Стрелка при наведении */
+  --arrow-color-hover:    #000000;
+  /* Стрелка неактивная (конец/начало, некуда листать) */
+  --arrow-color-disabled: #b8b8bd;
+
+  /* Размер иконки стрелки */
+  --arrow-size:           22px;
+  /* Размер круглой кнопки */
+  --arrow-btn-size:       48px;
+  /* ⭐ ПРАВКА: это теперь воздух МЕЖДУ стрелкой и карточкой,
+     а не отступ от края экрана. Хочешь стрелки ближе/дальше
+     от таблички — крути это число. */
+  --arrow-gap:            24px;
+}
+
+/* ╔══════════════════════════════════════════════════════╗
+   ║  ⭐ ПРАВКА — СЕКЦИЯ 4 — НОВЫЕ ПЕРЕМЕННЫЕ              ║
+   ║  Motion blur при свайпе + акцентные кнопки + ключ    ║
+   ║  Всё настраивается тут, ничего из старого не трогал  ║
+   ╚══════════════════════════════════════════════════════╝ */
+:root {
+  /* --- Motion blur при перемотке слайдов --- */
+  /* Сила размытия в момент рывка (0px = выключить совсем).
+     Это НЕ блюр на весь переход — только короткая вспышка
+     в самом начале движения, имитирующая то, как глаз видит
+     смену картинок. */
+  --motion-blur-amount:     0.5px;
+  /* Как быстро блюр тает обратно в чёткость */
+  --motion-blur-duration:   0.18s;
+
+  /* --- Акцентные кнопки (Get / Get unlock code / email) --- */
+  --pill-accent-bg-start:   #0A84FF;
+  --pill-accent-bg-end:     #0071E3;
+  --pill-accent-color:      #FFFFFF;
+  --pill-accent-shadow:     rgba(10,132,255,0.35);
+  --pill-accent-shadow-hov: rgba(10,132,255,0.45);
+
+  /* --- Блок ключа лицензии (3 слайд) --- */
+  --key-bg:                 #ECECEF;
+  --key-border:              #DCDCE1;
+  --key-color:               #2C2C2E;
+
+  /* --- Валидация полей (5 пункт правок) --- */
+  --field-valid-border:      #34C759;
+  --field-valid-bg:          #F1FCF3;
+  --field-warn-border:       #FF9F0A;
+  --field-warn-bg:           #FFF8EE;
+}
+
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   СТРЕЛКИ
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+/* ⭐ ПРАВКА: было position:fixed + left/right:900px (потом я
+   по ошибке привязал к --arrow-side-gap от КРАЯ ЭКРАНА — из-за
+   этого стрелки были далеко от карточки на широких экранах).
+   Теперь стрелки — обычные flex-элементы внутри .slider-wrap,
+   рядом с карточкой. Расстояние от карточки регулируется ОДНОЙ
+   переменной --arrow-gap (Секция 2), а не привязано к ширине окна. */
+.arrow-btn {
+  position: static;
+  z-index: 50;
+  flex-shrink: 0;
+
+  width: var(--arrow-btn-size);
+  height: var(--arrow-btn-size);
+  border-radius: 50%;
+  border: none;
+  background: #f5f5f7;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+
+  /* Плавный переход цвета и масштаба */
+  transition: background var(--anim-arrow-press),
+              transform  var(--anim-arrow-press),
+              opacity    0.25s ease;
+}
+
+/* SVG иконка стрелки */
+.arrow-btn svg {
+  width:  var(--arrow-size);
+  height: var(--arrow-size);
+  transition: stroke 0.25s ease;
+  flex-shrink: 0;
+}
+
+/* Активное состояние — есть куда листать */
+.arrow-btn.active svg { stroke: var(--arrow-color-active); }
+
+/* Наведение — темнее */
+.arrow-btn.active:hover svg { stroke: var(--arrow-color-hover); }
+
+/* Нажатие — чуть уменьшается */
+.arrow-btn.active:active {
+  transform: scale(0.88);
+  background: rgba(0,0,0,0.05);
+}
+
+/* Неактивное — некуда листать, светлее */
+.arrow-btn.disabled {
+  cursor: default;
+  pointer-events: none;  /* клики не проходят */
+}
+.arrow-btn.disabled svg { stroke: var(--arrow-color-disabled); }
+
+
+
+
+
+
+
+
+/* ╔══════════════════════════════════════════════════════╗
+   ║  СЕКЦИЯ 3 — АНИМАЦИИ                                 ║
+   ║  cubic-bezier(A,B,C,D): B>1 = пружина/bounce         ║
+   ║  Чем больше B — тем сильнее отскок                   ║
+   ╚══════════════════════════════════════════════════════╝ */
+:root {
+  /* Переход между карточками */
+  --anim-slide-duration: 0.65s;
+  --anim-slide-bounce: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* Стрелка при нажатии */
+  --anim-arrow-press:    0.12s ease;
+}
+
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   БАЗОВЫЕ СТИЛИ
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text",
+               "Helvetica Neue", Arial, sans-serif;
+  background: var(--page-bg);
+  color: var(--title-color);
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+  height: 100%;
+  width: 100%;
+}
+body { height: 100dvh; width: 100vw; }
+
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   СЛАЙДЕР
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.slider-wrap {
+  width: 100%;
+  height: 100dvh;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* ⭐ ПРАВКА: воздух между стрелками и карточкой — одна точка контроля */
+  gap: var(--arrow-gap);
+}
+
+/* Видимая зона — карточки не вылезают за стрелки */
+.slider-viewport {
+  width: 100%;
+  max-width: var(--card-max-w);
+  overflow: hidden;         /* ← маска: карточки не вылезают */
+  position: relative;
+  flex-shrink: 1;
+}
+
+.slider-track {
+  display: flex;
+  will-change: transform;
+  /* ширина = число слайдов × 100% viewport */
+  width: 500%;
+  /* ⭐ ПРАВКА: плавно включаем/выключаем блюр при свайпе.
+     Сила и длительность настраиваются переменными
+     --motion-blur-amount / --motion-blur-duration выше. */
+  filter: blur(0px);
+  transition: filter var(--motion-blur-duration) ease;
+}
+
+/* ⭐ ПРАВКА: класс добавляется/убирается через JS в функции goTo() */
+.slider-track.is-sliding {
+  filter: blur(var(--motion-blur-amount));
+}
+
+.slide {
+  /* каждый слайд = 1/5 трека */
+  width: 20%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 12px;
+  flex-shrink: 0;
+  /* высота слайда = высота viewport */
+  min-height: 100dvh;
+}
+
+
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   КАРТОЧКА
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.card {
+  background: var(--card-bg);
+  border-radius: var(--card-radius);
+  padding: var(--card-padding-v) var(--card-padding-h);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--card-gap);
+  width: 100%;
+  max-width: var(--card-max-w);
+}
+
+.card-title {
+  font-size: 19px;
+  font-weight: 500;
+  color: var(--title-color);
+  text-align: center;
+  letter-spacing: -0.022em;
+  line-height: 1.3;
+  margin-top: -15px;
+}
+
+.card-sub {
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--sub-color);
+  text-align: center;
+  line-height: 1.55;
+}
+
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   КНОПКА-ТАБЛЕТКА
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.pill-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: 200px;
+  padding: var(--pill-padding-v) var(--pill-padding-h);
+  background: var(--pill-bg);
+  border: none;
+  border-radius: var(--pill-radius);
+  font-size: var(--pill-font-size);
+  font-weight: 500;
+  font-family: inherit;
+  color: var(--pill-color);
+  cursor: pointer;
+  text-decoration: none;
+  transition: opacity 0.15s, transform 0.15s, box-shadow 0.2s;
+  -webkit-tap-highlight-color: transparent;
+}
+.pill-btn:hover  { opacity: 0.78; }
+.pill-btn:active { opacity: 0.6; }
+.pill-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* ⭐ ПРАВКА (пункт 3): акцентный вариант кнопки — для "Get",
+   "Get unlock code" и email-кнопок. Сделал синий градиент в духе
+   Apple-ссылок (#0071E3), гармонирует с серой карточкой, выглядит
+   "нажимаемо". Цвета — переменные сверху, меняй там, если захочешь
+   другой оттенок. Класс добавляется доп.классом, базовый .pill-btn
+   не трогал, чтобы ничего не сломать. */
+.pill-btn-accent {
+  background: linear-gradient(135deg, var(--pill-accent-bg-start), var(--pill-accent-bg-end));
+  color: var(--pill-accent-color);
+ 
+}
+.pill-btn-accent:hover {
+  opacity: 1;
+  transform: translateY(-1px);
+ 
+}
+.pill-btn-accent:active {
+  transform: translateY(0) scale(0.97);
+  
+}
+
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   ПОЛЕ ВВОДА
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.pill-input {
+  width: 75%;
+  padding: var(--pill-padding-v) var(--pill-padding-h);
+  background: var(--input-bg);
+  border: 2px solid transparent;
+  border-radius: var(--pill-radius);
+  font-size: var(--input-font-size);
+  font-family: inherit;
+  font-weight: 400;
+  color: var(--title-color);
+  outline: none;
+  text-align: center;
+  -webkit-appearance: none;
+  transition: border-color 0.2s, background 0.2s;
+}
+.pill-input::placeholder {
+  color: var(--input-color);
+  transition: opacity 0.15s;
+}
+
+/* ⭐ ПРАВКА (пункт 5): живая валидация полей License/Device.
+   Зелёная рамка = всё ок, оранжевая = есть проблема + понятная
+   подсказка под полем (не код ошибки). См. .field-hint ниже. */
+.pill-input.valid {
+  border-color: var(--field-valid-border);
+  background: var(--field-valid-bg);
+}
+.pill-input.invalid {
+  border-color: var(--field-warn-border);
+  background: var(--field-warn-bg);
+}
+
+.field-hint {
+  font-size: 12.5px;
+  line-height: 1.4;
+  text-align: center;
+  min-height: 16px;
+  width: 85%;
+  margin-top: -6px;
+}
+.field-hint.hint-ok   { color: #1FA34A; }
+.field-hint.hint-warn { color: #C77400; }
+
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   БЛОК 1 — СОСТОЯНИЯ ОПЛАТЫ
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+@keyframes spin { to { transform: rotate(360deg); } }
+.spinner {
+  width: 24px; height: 24px;
+  
+  border-radius: 50%;
+  animation: spin 0.85s linear infinite;
+  flex-shrink: 0;
+}
+
+.state-block {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--card-gap);
+  width: 100%;
+}
+.state-block.active { display: flex; }
+
+.state-msg { font-size: 14px; color: var(--sub-color); text-align: center; line-height: 1.6; }
+.state-msg a { color: #0071E3; text-decoration: none; }
+.state-msg strong { color: var(--title-color); font-weight: 600; }
+
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   БЛОК 2 — КЛЮЧ ЛИЦЕНЗИИ
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.key-display {
+  width: 70%;
+  padding: var(--pill-padding-v) var(--pill-padding-h);
+  /* ⭐ ПРАВКА (пункт 4): было чисто белый фон на белой странице —
+     "дешёво" смотрелось и сливалось с фоном. Теперь мягкий серый
+     (--key-bg) + текст не чёрный и не белый (--key-color), гармонично
+     с остальными серыми карточками. */
+  background: var(--key-bg);
+  border: 1.5px solid var(--key-border);
+  border-radius: var(--pill-radius);
+  font-size: 14px;
+  font-family: inherit;
+  color: var(--key-color);
+  text-align: center;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: 0.02em;
+}
+.key-display:hover  { opacity: 0.72; }
+.key-display:active { opacity: 0.5; }
+
+.copy-hint-sm {
+  font-size: 12px;
+  color: var(--sub-color);
+  min-height: 16px;
+  display: block;
+  text-align: center;
+}
+
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   БЛОК 3 — ИНСТРУКЦИЯ
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.steps-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
+  text-align: left;
+  padding: 0 0 0 8px;
+  margin: 0;
+}
+.steps-list li {
+  font-size: 15px;
+  font-weight: 400;
+  color: var(--body-color);
+  line-height: 1.5;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+.steps-list li::before {
+  content: "•";
+  flex-shrink: 0;
+  width: 10px;
+  text-align: center;
+  color: var(--sub-color);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   БЛОК 4 — РЕЗУЛЬТАТЫ АКТИВАЦИИ
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.result-success {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 20px;
+  background: #F0FDF4;
+  border: 1px solid #BBF7D0;
+  border-radius: 20px;
+  text-align: center;
+}
+.result-label-ok {
+  font-size: 11px; font-weight: 700;
+  letter-spacing: 0.09em; text-transform: uppercase; color: #16A34A;
+}
+.unlock-code {
+  font-family: "SF Mono", ui-monospace, monospace;
+  font-size: 22px; font-weight: 700;
+  color: var(--title-color);
+  cursor: pointer; user-select: all; letter-spacing: 0.06em;
+}
+.copy-hint { font-size: 12px; color: var(--sub-color); }
+
+.result-error {
+  display: none;
+  width: 100%; padding: 18px;
+  background: #FFF1F2; border: 1px solid #FECDD3;
+  border-radius: 20px; text-align: center;
+}
+.error-label {
+  font-size: 11px; font-weight: 700;
+  letter-spacing: 0.09em; text-transform: uppercase; color: #DC2626; margin-bottom: 6px;
+}
+.error-text { font-size: 14px; color: #DC2626; }
+
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   DEV-ПАНЕЛЬ (удали перед публикацией)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.dev-panel {
+  position: fixed;
+  top: 16px; left: 50%;
+  transform: translateX(-50%);
+  z-index: 999;
+  display: flex;
+  gap: 6px;
+  background: rgba(0,0,0,0.82);
+  border-radius: 100px;
+  padding: 8px 14px;
+  backdrop-filter: blur(10px);
+}
+.dev-panel button {
+  background: none; border: none;
+  color: #fff; font-size: 12px; font-weight: 600;
+  font-family: inherit; cursor: pointer; padding: 4px 8px;
+  border-radius: 100px; white-space: nowrap;
+  transition: background 0.15s;
+}
+.dev-panel button:hover { background: rgba(255,255,255,0.15); }
+.dev-panel button.red    { color: #FF453A; }
+.dev-panel button.green  { color: #30D158; }
+.dev-panel button.yellow { color: #FFD60A; }
+
+
+/* ╔══════════════════════════════════════════════════════╗
+   ║  АДАПТАЦИЯ                                           ║
+   ╚══════════════════════════════════════════════════════╝ */
+@media (max-width: 480px) {
+  :root {
+    --card-padding-v:    24px;
+    --card-padding-h:    20px;
+    --card-gap:          14px;
+    --card-max-w:        100%;
+    --pill-padding-v:    12px;
+    --pill-padding-h:    20px;
+    --pill-font-size:    14px;
+    --input-font-size:   14px;
+    --arrow-btn-size:    40px;
+    --arrow-size:        18px;
+    --arrow-gap:         12px;
+  }
+  .card-title { font-size: 17px; margin-top: -8px; }
+  .card-sub   { font-size: 13px; }
+  .steps-list li { font-size: 14px; }
+  .steps-list { gap: 16px; }
+  .pill-input  { width: 85%; }
+  .key-display { width: 85%; }
+  .unlock-code { font-size: 18px; }
+}
+
+/* ⭐ ПРАВКА: добавлена промежуточная точка для очень узких/сжатых
+   окон (например, когда сжимаешь окно браузера на десктопе, а не
+   реальный мобильный экран) — раньше между 480px и 769px зазор
+   стрелок не уменьшался и при сильном сжатии карточка наезжала
+   на стрелки/обрезалась. Теперь есть плавный шаг. */
+@media (max-width: 700px) and (min-width: 481px) {
+  :root {
+    --arrow-gap:         16px;
+    --arrow-btn-size:    44px;
+    --card-max-w:        360px;
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1024px) {
+  :root {
+    --card-max-w:        480px;
+    --card-padding-v:    40px;
+    --card-padding-h:    36px;
+    --card-gap:          20px;
+    --pill-font-size:    16px;
+    --pill-padding-v:    15px;
+    --input-font-size:   16px;
+    --arrow-btn-size:    52px;
+    --arrow-size:        24px;
+    --arrow-gap:         24px;
+  }
+  .card-title  { font-size: 21px; }
+  .pill-input  { width: 70%; }
+  .key-display { width: 65%; }
+}
+
+@media (min-width: 1025px) {
+  :root {
+    --card-max-w:        440px;
+    --card-padding-v:    40px;
+    --card-padding-h:    36px;
+    --card-gap:          20px;
+    --pill-font-size:    16px;
+    --input-font-size:   16px;
+    --arrow-btn-size:    56px;
+    --arrow-size:        26px;
+    --arrow-gap:         32px;
+  }
+  .card-title  { font-size: 20px; }
+  .pill-input  { width: 68%; }
+  .key-display { width: 63%; }
+}
+
+@media (max-height: 500px) and (orientation: landscape) {
+  :root {
+    --card-padding-v:    16px;
+    --card-padding-h:    20px;
+    --card-gap:          10px;
+    --arrow-btn-size:    38px;
+    --arrow-size:        16px;
+  }
+  .card-title { font-size: 16px; margin-top: -4px; }
+  .card-sub   { font-size: 12px; }
+  .steps-list li { font-size: 13px; }
+  .steps-list { gap: 10px; }
+  .pill-input  { width: 80%; }
+  .key-display { width: 78%; }
+  .unlock-code { font-size: 16px; }
+}
+
+</style>
+</head>
+<body>
+
+<!-- DEV-ПАНЕЛЬ — УДАЛИ ПЕРЕД ПУБЛИКАЦИЕЙ -->
+<div class="dev-panel">
+  <button class="yellow" onclick="devShow('waiting')">⏳ Wait</button>
+  <button class="green"  onclick="devShow('success')">✅ Paid</button>
+  <button class="red"    onclick="devShow('timeout')">⏱ Timeout</button>
+  <button class="red"    onclick="devShow('error')">❌ Error</button>
+</div>
+
+
+<!-- ╔══════════════════════════════════════════════════════╗
+     ║  СЛАЙДЕР (стрелки теперь внутри — в одном flex-ряду    ║
+     ║  с карточкой, см. правку выше)                       ║
+     ╚══════════════════════════════════════════════════════╝ -->
+<div class="slider-wrap">
+
+  <!-- СТРЕЛКА ВЛЕВО -->
+  <button class="arrow-btn left disabled" id="arrowLeft" onclick="goTo(current - 1)" aria-label="Previous">
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="15 18 9 12 15 6"/>
+    </svg>
+  </button>
+
+  <!-- Viewport — маска, карточки не вылезают за стрелки -->
+  <div class="slider-viewport">
+    <div class="slider-track" id="sliderTrack">
+
+      <!-- СЛАЙД 1 — Get iLabels -->
+      <div class="slide">
+        <div class="card">
+
+          <div class="state-block active" id="stateWaiting">
+            <p class="card-title">Get iLabels</p>
+            <div class="spinner"></div>
+            <p class="card-sub">Confirming payment…<br>1–3 minutes, don't close the tab.</p>
+          </div>
+
+          <div class="state-block" id="stateSuccess">
+            <p class="card-title">Get iLabels</p>
+            <!--
+              ★ ССЫЛКА НА СКАЧИВАНИЕ ★
+              Подставляется из API автоматически.
+              Для Google Drive: href="https://drive.google.com/uc?export=download&id=ВАШ_ID"
+              ⭐ ПРАВКА: добавлен класс pill-btn-accent (см. пункт 3 правок)
+            -->
+            <a id="downloadBtnMain" href="#" class="pill-btn pill-btn-accent" download>Get</a>
+          </div>
+
+          <div class="state-block" id="stateTimeout">
+            <p class="card-title">Get iLabels</p>
+            <p class="state-msg">
+              Still confirming — refresh in a few minutes.<br><br>
+              Already paid? Email us with order ID <strong id="orderDisplay"></strong><br>
+              <a href="mailto:iosflowzy@gmail.com">iosflowzy@gmail.com</a>
+            </p>
+          </div>
+
+          <div class="state-block" id="stateError">
+            <p class="card-title">Get iLabels</p>
+            <p class="state-msg">
+              Invalid link. Already paid?<br>
+              <a href="mailto:iosflowzy@gmail.com">iosflowzy@gmail.com</a>
+            </p>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- СЛАЙД 2 — Your License Key -->
+      <div class="slide">
+        <div class="card">
+          <p class="card-title">Your License Key</p>
+          <div class="key-display"
+               id="licenseKeyBox"
+               onclick="copyToClipboard(this.textContent, 'keyCopyHint')"
+               title="Click to copy">—</div>
+          <span class="copy-hint-sm" id="keyCopyHint">Click to copy</span>
+        </div>
+      </div>
+
+      <!-- СЛАЙД 3 — How to install -->
+      <div class="slide">
+        <div class="card">
+          <p class="card-title">How to install iLabels?</p>
+          <ul class="steps-list">
+            <li><span>Move <strong>iLabels.jsx</strong> to<br>After Effects 2026 > Support Files > Scripts > ScriptUI Panels</span></li>
+            <li><span>Open After Effects > Window > iLabels.jsxbin</span></li>
+            <li><span>Paste your <strong>License Key</strong> when the panel opens</span></li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- СЛАЙД 4 — Get unlock code -->
+      <div class="slide">
+        <div class="card">
+          <p class="card-title">Get your unlock code</p>
+          <p class="card-sub">Your Device ID appears inside the iLabels panel.</p>
+
+          <input class="pill-input" id="licenseInput" type="text"
+                 placeholder="License key" autocomplete="off" spellcheck="false">
+          <!-- ⭐ ПРАВКА (пункт 5): подсказка с живой валидацией -->
+          <span class="field-hint" id="licenseHint"></span>
+
+          <input class="pill-input" id="deviceInput" type="text"
+                 placeholder="Device ID" autocomplete="off" spellcheck="false">
+          <!-- ⭐ ПРАВКА (пункт 5): подсказка с живой валидацией -->
+          <span class="field-hint" id="deviceHint"></span>
+
+          <button class="pill-btn pill-btn-accent" id="activateBtn" onclick="doActivate()">Get unlock code</button>
+
+          <div class="result-success" id="successBox">
+            <div class="result-label-ok">Unlock Code</div>
+            <div class="unlock-code" id="unlockCode" onclick="copyUnlock()" title="Click to copy">——</div>
+            <div class="copy-hint" id="unlockHint">Click to copy</div>
+            <p style="font-size:13px;color:#6E6E73;margin-top:4px">Paste this in iLabels and click Activate.</p>
+          </div>
+
+          <div class="result-error" id="errorBox">
+            <div class="error-label">Error</div>
+            <div class="error-text" id="errorMsg"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- СЛАЙД 5 — Need help -->
+      <div class="slide">
+        <div class="card">
+          <p class="card-title">Need help?</p>
+          <p class="card-sub">Something went wrong or have a question?</p>
+          <a href="mailto:iosflowzy@gmail.com" class="pill-btn pill-btn-accent">iosflowzy@gmail.com</a>
+        </div>
+      </div>
+
+    </div><!-- /slider-track -->
+  </div><!-- /slider-viewport -->
+
+  <!-- СТРЕЛКА ВПРАВО -->
+  <button class="arrow-btn right active" id="arrowRight" onclick="goTo(current + 1)" aria-label="Next">
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="9 18 15 12 9 6"/>
+    </svg>
+  </button>
+</div><!-- /slider-wrap -->
+
+
+<script>
+/* ╔══════════════════════════════════════════════════════╗
+   ║  НАСТРОЙКА API                                        ║
+   ╚══════════════════════════════════════════════════════╝ */
+var API = 'https://ilabels-api.iosflowzy.workers.dev';
+
+var TOTAL   = 5;
+var current = 0;
+
+var track      = document.getElementById('sliderTrack');
+var arrowLeft  = document.getElementById('arrowLeft');
+var arrowRight = document.getElementById('arrowRight');
+
+function cssVar(name) {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   ОБНОВЛЕНИЕ СОСТОЯНИЯ СТРЕЛОК
+   active  = есть куда листать (нормальный цвет)
+   disabled = конец/начало (светлее, не кликается)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+function updateArrows() {
+  /* Левая стрелка — disabled если мы на первом слайде */
+  arrowLeft.className  = 'arrow-btn left '  + (current === 0            ? 'disabled' : 'active');
+  /* Правая стрелка — disabled если мы на последнем слайде */
+  arrowRight.className = 'arrow-btn right ' + (current === TOTAL - 1    ? 'disabled' : 'active');
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   ПЕРЕХОД НА СЛАЙД
+   ⭐ ПРАВКА (пункт 1): добавлен motion blur во время свайпа.
+   Сила/длительность блюра управляются переменными
+   --motion-blur-amount и --motion-blur-duration в CSS (Секция 4).
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+var blurTimeout = null;
+
+function goTo(index, instant) {
+  if (index < 0 || index >= TOTAL) return;
+  current = index;
+
+  var pct = -(index / TOTAL) * 100;
+  track.style.transition = instant
+    ? 'none'
+    : 'transform ' + cssVar('--anim-slide-duration') + ' ' + cssVar('--anim-slide-bounce');
+  track.style.transform = 'translateX(' + pct + '%)';
+
+  if (!instant) {
+    /* ⭐ ПРАВКА: блюр — это короткая вспышка в момент рывка,
+       а не размазанная карточка на весь переход. Включаем,
+       и уже через ~25% времени перехода убираем — дальше карточка
+       долетает чёткой. Если хочешь сильнее/слабее ощущение —
+       крути --motion-blur-amount, длительность вспышки —
+       --motion-blur-duration (CSS, Секция 4). */
+    track.classList.add('is-sliding');
+    clearTimeout(blurTimeout);
+    var slideMs = parseFloat(cssVar('--anim-slide-duration')) * 1000 || 650;
+    blurTimeout = setTimeout(function () {
+      track.classList.remove('is-sliding');
+    }, slideMs * 0.25);
+  }
+
+  updateArrows();
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   СВАЙП ПАЛЬЦЕМ (мобиле)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+(function() {
+  var wrap = document.querySelector('.slider-wrap');
+  var sx, sy;
+  wrap.addEventListener('touchstart', function(e) {
+    sx = e.touches[0].clientX;
+    sy = e.touches[0].clientY;
+  }, { passive: true });
+  wrap.addEventListener('touchend', function(e) {
+    var dx = e.changedTouches[0].clientX - sx;
+    var dy = e.changedTouches[0].clientY - sy;
+    if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 38) {
+      goTo(dx < 0 ? current + 1 : current - 1);
+    }
+  }, { passive: true });
+}());
+
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   БЛОК 1 — ОПРОС СТАТУСА ОПЛАТЫ
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+(function() {
+  var order = new URLSearchParams(window.location.search).get('order');
+
+  function showState(id) {
+    ['stateWaiting','stateSuccess','stateTimeout','stateError'].forEach(function(s) {
+      document.getElementById(s).classList.toggle('active', s === id);
+    });
+  }
+
+  if (!order) { showState('stateError'); return; }
+
+  var el = document.getElementById('orderDisplay');
+  if (el) el.textContent = order;
+  showState('stateWaiting');
+
+  var attempts = 0;
+  var interval = setInterval(function() {
+    attempts++;
+    fetch(API + '/api/status?order=' + order)
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data.status === 'paid') {
+          clearInterval(interval);
+          document.getElementById('licenseKeyBox').textContent = data.licenseKey;
+          document.getElementById('licenseInput').value = data.licenseKey;
+          document.getElementById('downloadBtnMain').href = API + '/api/download?token=' + data.downloadToken;
+          showState('stateSuccess');
+        }
+      })
+      .catch(function() {});
+    if (attempts >= 60) { clearInterval(interval); showState('stateTimeout'); }
+  }, 3000);
+}());
+
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   БЛОК 4 — ФОРМА АКТИВАЦИИ
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+async function doActivate() {
+  var license = document.getElementById('licenseInput').value.trim().toUpperCase();
+  var device  = document.getElementById('deviceInput').value.trim();
+  var btn     = document.getElementById('activateBtn');
+
+  document.getElementById('successBox').style.display = 'none';
+  document.getElementById('errorBox').style.display   = 'none';
+
+  if (!license || !device) { showActivateError('Please fill in both fields.'); return; }
+
+  btn.disabled = true; btn.textContent = 'Checking…';
+
+  try {
+    var res  = await fetch(API + '/api/activate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ license: license, device: device })
+    });
+    var data = await res.json();
+
+    if (data.success) {
+      document.getElementById('unlockCode').textContent   = data.unlockCode;
+      document.getElementById('successBox').style.display = 'flex';
+      document.getElementById('unlockHint').textContent   = 'Click to copy';
+    } else {
+      showActivateError(data.error || 'Activation failed. Check your license key.');
+    }
+  } catch(e) {
+    showActivateError('Network error. Please try again.');
+  }
+
+  btn.disabled = false; btn.textContent = 'Get unlock code';
+}
+
+function showActivateError(msg) {
+  document.getElementById('errorMsg').textContent   = msg;
+  document.getElementById('errorBox').style.display = 'block';
+}
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter' && current === 3) doActivate();
+  if (e.key === 'ArrowLeft')  goTo(current - 1);
+  if (e.key === 'ArrowRight') goTo(current + 1);
+});
+
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   ⭐ ПРАВКА (пункт 5) — ЖИВАЯ ВАЛИДАЦИЯ ПОЛЕЙ
+   - License key: автоматически чистит лишние символы, делает
+     UPPERCASE, сама расставляет дефисы по 4 символа (как
+     ILBL-XXXX-XXXX-XXXX), не заставляя гадать формат.
+   - Зелёная рамка + "✓ ..." когда формат верный.
+   - Оранжевая рамка + человеческое объяснение, если что-то не так
+     (без кодов ошибок).
+   - Device ID: просто мягкая подсказка, если поле выглядит
+     подозрительно коротким (вряд ли скопировано целиком).
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+(function() {
+  var licenseInput = document.getElementById('licenseInput');
+  var deviceInput  = document.getElementById('deviceInput');
+  var licenseHint  = document.getElementById('licenseHint');
+  var deviceHint   = document.getElementById('deviceHint');
+
+  function formatLicense(raw) {
+    var clean  = raw.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    var groups = clean.match(/.{1,4}/g) || [];
+    return groups.slice(0, 4).join('-');
+  }
+
+  function setFieldState(el, hintEl, state, message) {
+    el.classList.remove('valid', 'invalid');
+    hintEl.classList.remove('hint-ok', 'hint-warn');
+    if (state === 'ok') {
+      el.classList.add('valid');
+      hintEl.classList.add('hint-ok');
+    } else if (state === 'warn') {
+      el.classList.add('invalid');
+      hintEl.classList.add('hint-warn');
+    }
+    hintEl.textContent = message || '';
+  }
+
+  if (licenseInput) {
+    licenseInput.addEventListener('input', function() {
+      var caretWasAtEnd = this.selectionEnd === this.value.length;
+      this.value = formatLicense(this.value);
+      if (caretWasAtEnd) {
+        this.setSelectionRange(this.value.length, this.value.length);
+      }
+
+      var val = this.value;
+      if (!val) { setFieldState(this, licenseHint, null, ''); return; }
+
+      var isComplete = /^[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(val);
+      if (isComplete) {
+        setFieldState(this, licenseHint, 'ok', '✓ Похоже, ключ введён верно');
+      } else {
+        setFieldState(this, licenseHint, 'warn', 'Ключ выглядит как ILBL-XXXX-XXXX-XXXX — допиши недостающие символы');
+      }
+    });
+  }
+
+  if (deviceInput) {
+    deviceInput.addEventListener('input', function() {
+      var val = this.value.trim();
+      if (!val) { setFieldState(this, deviceHint, null, ''); return; }
+
+      if (val.length >= 6) {
+        setFieldState(this, deviceHint, 'ok', '✓ Device ID получен');
+      } else {
+        setFieldState(this, deviceHint, 'warn', 'ID короче, чем обычно — проверь, скопировал ли его целиком');
+      }
+    });
+  }
+}());
+
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   УТИЛИТЫ
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+function copyUnlock() {
+  copyToClipboard(document.getElementById('unlockCode').textContent, 'unlockHint');
+}
+function copyToClipboard(text, hintId) {
+  navigator.clipboard.writeText(text).then(function() {
+    var el = document.getElementById(hintId);
+    if (el) el.textContent = '✓ Copied!';
+    setTimeout(function() {
+      var el2 = document.getElementById(hintId);
+      if (el2) el2.textContent = 'Click to copy';
+    }, 2000);
+  }).catch(function() {});
+}
+
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   DEV (УДАЛИ ПЕРЕД ПУБЛИКАЦИЕЙ)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+function devShow(state) {
+  var fakeKey = 'ILBL-TEST-AAAA-CCCC';
+  if (state === 'success') {
+    document.getElementById('licenseKeyBox').textContent = fakeKey;
+    document.getElementById('licenseInput').value        = fakeKey;
+    document.getElementById('downloadBtnMain').href      = '#dev-download';
+  }
+  var map = { waiting:'stateWaiting', success:'stateSuccess', timeout:'stateTimeout', error:'stateError' };
+  ['stateWaiting','stateSuccess','stateTimeout','stateError'].forEach(function(s) {
+    document.getElementById(s).classList.toggle('active', s === map[state]);
+  });
+}
+
+/* Запуск */
+goTo(0, true);
+</script>
+
+</body>
+</html>

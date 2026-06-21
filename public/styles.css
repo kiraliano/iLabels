@@ -1,0 +1,870 @@
+/* ============================================================
+   ILABELS LANDING PAGE — CSS
+   ============================================================ */
+
+:root {
+    --color-primary: #1d1d1f;
+    --color-secondary: #86868b;
+    --color-background: #ffffff;
+    --color-surface: #f5f5f7;
+    --color-border: #e8e8ed;
+    --color-accent: #007aff;
+
+    --font-size-xs: 12px;
+    --font-size-sm: 14px;
+    --font-size-base: 16px;
+    --font-size-lg: 18px;
+    --font-size-xl: 20px;
+    --font-size-2xl: 24px;
+    --font-size-3xl: 28px;
+    --font-size-4xl: 32px;
+    --font-size-5xl: 48px;
+    --font-size-6xl: 56px;
+    --font-size-7xl: 64px;
+
+    --spacing-xs: 4px;
+    --spacing-sm: 8px;
+    --spacing-base: 12px;
+    --spacing-md: 16px;
+    --spacing-lg: 24px;
+    --spacing-xl: 32px;
+    --spacing-2xl: 40px;
+    --spacing-3xl: 48px;
+    --spacing-4xl: 56px;
+    --spacing-5xl: 80px;
+
+    --radius-sm: 4px;
+    --radius-md: 10px;
+    --radius-lg: 16px;
+    --radius-xl: 24px;
+    --radius-2xl: 28px;
+
+    --shadow-sm: 0 2px 8px rgba(0,0,0,0.04);
+    --shadow-md: 0 8px 24px rgba(0,0,0,0.08);
+    --shadow-lg: 0 24px 60px rgba(0,0,0,0.14);
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 24px;
+    /* Prevent horizontal overflow on all iPhones */
+    overflow-x: hidden;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif;
+    font-size: var(--font-size-base);
+    line-height: 1.6;
+    color: var(--color-primary);
+    background: var(--color-background);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
+    /* Fix iOS text size adjustment */
+    -webkit-text-size-adjust: 100%;
+}
+
+a {
+    color: inherit;
+    text-decoration: none;
+}
+
+h1, h2, h3, h4 {
+    font-weight: 600;
+    line-height: 1.15;
+}
+
+p {
+    color: var(--color-secondary);
+}
+
+.page-wrapper {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+}
+
+.container {
+    max-width: 1160px;
+    margin: 0 auto;
+    padding: 0 var(--spacing-xl);
+    width: 100%;
+}
+
+section {
+    padding: var(--spacing-5xl) 0;
+}
+
+/* ============================================================
+   HERO
+   ============================================================ */
+
+.hero {
+    display: flex;
+    align-items: center;
+    text-align: center;
+    padding: 120px 0 80px;
+    background:
+        radial-gradient(ellipse 70% 45% at 50% -5%,
+            rgba(0, 122, 255, 0.08) 0%,
+            rgba(255, 255, 255, 0.0) 65%);
+}
+
+.hero-content {
+    max-width: 960px;
+    margin: 0 auto;
+    width: 100%;
+}
+
+.hero-title {
+    /* 
+      FIX: Нижний padding нужен чтобы «g» с descender-ом
+      не обрезалась при -webkit-background-clip: text на .hero-gradient
+    */
+    font-size: clamp(36px, 8vw, 72px);
+    font-weight: 700;
+    line-height: 1.15;
+    /* Убираем tight line-height который обрезал descender */
+    padding-bottom: 0.1em;
+    margin-bottom: var(--spacing-lg);
+    color: var(--color-primary);
+    letter-spacing: -0.04em;
+    /* Разрешаем перенос чтобы точка не отрывалась на мобиле */
+    word-break: keep-all;
+    overflow-wrap: normal;
+}
+
+@keyframes rainbowFlow {
+    0%   { background-position: 0% 50%; }
+    50%  { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+.hero-gradient {
+    display: inline-block;
+background: linear-gradient(135deg,
+    #00B8FF 0%,
+    #1CC8FF 6%,
+    #3AD8FF 12%,
+    #58E7F5 18%,
+
+    #6EF0D7 24%,
+    #88F4BC 30%,
+    #A6F59D 36%,
+    #C8F382 42%,
+
+    
+    #FFE66D 54%,
+    #FFC95A 60%,
+    #FFB15A 66%,
+    #FF8E6B 72%,
+
+    #FF6F8A 78%,
+    #FF6FA5 84%,
+    #FF8EBB 90%,
+    #FFC3E6 100%
+);
+
+
+    padding-left: 0.05em;
+    padding-right: 0.05em;
+
+    
+    background-size: 280% 280%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+    animation: rainbowFlow 8s ease-in-out infinite;
+    /* FIX: Оставляем место для descender буквы "g"  */
+    padding-bottom: 0.15em;
+    /* FIX: Точка отдельная — убираем лишний пробел, точка теперь внутри span */
+}
+
+.hero-subtitle {
+    /* FIX: Исправлен clamp — был неправильный порядок (30px min > 26px max) */
+    font-size: clamp(16px, 2.5vw, 22px);
+    color: var(--color-secondary);
+    margin-bottom: var(--spacing-2xl);
+    line-height: 1.5;
+    font-weight: 400;
+    max-width: 680px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.button-group {
+    display: flex;
+    gap: var(--spacing-md);
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-bottom: 64px;
+}
+
+/* ============================================================
+   PRICE PILL
+   ============================================================ */
+
+.price-pill {
+    display: inline-flex;
+    align-items: center;
+    background-color: #f1f1f4;
+    border-radius: 980px;
+    padding: 8px 24px 8px 24px; /* ТУТ МЕНЯЕТСЯ КНОПКА ПОКУПКИ */
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    /* FIX: Запрещаем выходить за края экрана */
+    max-width: 100%;
+}
+
+.price-pill-label {
+    font-size: clamp(15px, 4vw, 21px);
+    font-weight: 500;
+    color: #1d1d1f;
+    letter-spacing: -0.022em;
+    margin-right: clamp(20px, 5vw, 80px);
+    white-space: nowrap;
+    
+}
+
+.price-pill-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    
+    background: linear-gradient(135deg,
+    #00B8FF 0%,
+    #1CC8FF 6%,
+    #3AD8FF 12%,
+    #58E7F5 18%,
+
+    #6EF0D7 24%,
+    #88F4BC 30%,
+    #A6F59D 36%,
+    #C8F382 42%,
+
+    
+    #FFE66D 54%,
+    #FFC95A 60%,
+    #FFB15A 66%,
+    #FF8E6B 72%,
+
+    #FF6F8A 78%,
+    #FF6FA5 84%,
+    #FF8EBB 90%,
+    #FFC3E6 100%
+);
+    background-size: 280% 280%;
+    animation: rainbowFlow 8s ease-in-out infinite;
+    color: #ffffff;
+    font-size: clamp(1px, 3.5vw, 20px);
+    font-weight: 500;
+    padding: clamp(15px, 2.5vw, 12px) clamp(30px, 5vw, 30px);
+    border-radius: 980px;
+    border: none;
+    cursor: pointer;
+    transition: opacity 0.2s ease;
+    text-decoration: none;
+    white-space: nowrap;
+   
+}
+
+
+
+/* ============================================================
+   VIDEO
+   ============================================================ */
+
+.hero-video-wrapper {
+    width: 100%;
+    background: transparent;
+    border-radius: var(--radius-2xl);
+    box-shadow: var(--shadow-lg);
+    overflow: hidden;
+    position: relative;
+    border: 1px solid rgba(0,0,0,0.05);
+    line-height: 0;
+}
+
+.demo-video {
+    width: 100%;
+    height: auto;
+    display: block;
+    object-fit: cover;
+    object-position: left center; /* показываем левую часть, плашки уходят вправо */
+    border-radius: 30px
+}
+/* ============================================================
+   FEATURE SHOWCASE
+   ============================================================ */
+
+.feature-showcase {
+    padding: 0 0 var(--spacing-5xl);
+}
+
+.feature-row {
+    display: grid;
+    grid-template-columns: 1fr 1.45fr;
+    gap: 72px;
+    align-items: center;
+    padding: 72px 0;
+}
+
+.feature-row:last-child {
+    padding-bottom: 0;
+}
+
+.feature-row-text {
+    max-width: 420px;
+    margin-bottom: 50px;
+}
+
+.feature-row-icon {
+    color: var(--color-secondary);
+    margin-bottom: 18px;
+    width: 30px;
+    height: 30px;
+}
+
+.feature-row-title {
+    font-size: clamp(26px, 4vw, 40px);
+    font-weight: 600;
+    margin-bottom: 12px;
+    color: var(--color-primary);
+    letter-spacing: -0.02em;
+}
+
+.feature-row-description {
+    font-size: clamp(16px, 2vw, 20px);
+    color: var(--color-secondary);
+    line-height: 1.65;
+    margin: 0;
+}
+
+.feature-row-visual {
+    min-width: 0;
+    overflow: hidden; /* добавь это */
+}
+
+.feature-card-dark {
+    
+    border-radius: 30px;   /* любое число */
+    padding: 0;
+    box-shadow: var(--shadow-lg);
+    transform: translateZ(0);
+    -webkit-mask-image: -webkit-radial-gradient(white, black);
+}
+
+.feature-card-label {
+    text-align: center;
+    font-size: 10px;
+    color: #4c4c59;
+    margin: 10px 0 0;
+    letter-spacing: 0.04em;
+    font-weight: 400;
+    text-transform: uppercase;
+}
+
+/* ============================================================
+   SVG CARD ANIMATIONS
+   ============================================================ */
+
+.c1-bg-r2, .c1-bg-r3 { fill: #18181f; }
+.c1-tx-r2, .c1-tx-r3 { fill: #484858; }
+.c1-ring-r2, .c1-ring-r3 { opacity: 0; }
+.c1-ripple {
+    opacity: 0;
+    transform-box: fill-box;
+    transform-origin: center;
+}
+
+.c1-bg-r2  { animation: c1BgAnim 5.5s ease-in-out infinite; }
+.c1-bg-r3  { animation: c1BgAnim 5.5s ease-in-out 0.12s infinite; }
+.c1-tx-r2  { animation: c1TxAnim 5.5s ease-in-out infinite; }
+.c1-tx-r3  { animation: c1TxAnim 5.5s ease-in-out 0.12s infinite; }
+.c1-ring-r2 { animation: c1RingAnim 5.5s ease-in-out infinite; }
+.c1-ring-r3 { animation: c1RingAnim 5.5s ease-in-out 0.12s infinite; }
+.c1-ripple  { animation: c1RippleAnim 5.5s ease-out infinite; }
+
+@keyframes c1BgAnim {
+    0%, 28% { fill: #18181f; }
+    42%, 80% { fill: #0b2535; }
+    94%, 100% { fill: #18181f; }
+}
+@keyframes c1TxAnim {
+    0%, 28% { fill: #484858; }
+    42%, 80% { fill: #8ecde8; }
+    94%, 100% { fill: #484858; }
+}
+@keyframes c1RingAnim {
+    0%, 28% { opacity: 0; }
+    42%, 80% { opacity: 1; }
+    94%, 100% { opacity: 0; }
+}
+@keyframes c1RippleAnim {
+    0%, 24% { opacity: 0; transform: scale(1); }
+    27% { opacity: 0.9; transform: scale(1); }
+    42% { opacity: 0; transform: scale(2.4); }
+    100% { opacity: 0; transform: scale(1); }
+}
+
+.c2-bg-r1, .c2-bg-r2 { fill: #0b2535; }
+.c2-tx-r1, .c2-tx-r2 { fill: #8ecde8; }
+.c2-ring-r1, .c2-ring-r2 { opacity: 1; }
+.c2-toast-bg { fill: #252535; opacity: 0; }
+.c2-toast-text { fill: #b2b2cc; opacity: 0; }
+
+.c2-bg-r1, .c2-bg-r2 { animation: c2BgAnim 5.5s ease-in-out infinite; }
+.c2-tx-r1, .c2-tx-r2 { animation: c2TxAnim 5.5s ease-in-out infinite; }
+.c2-ring-r1 { animation: c2RingAnim 5.5s ease-in-out infinite; }
+.c2-ring-r2 { animation: c2RingAnim 5.5s ease-in-out 0.05s infinite; }
+.c2-toast-bg { animation: c2ToastAnim 5.5s ease-in-out infinite; }
+.c2-toast-text { animation: c2ToastTextAnim 5.5s ease-in-out infinite; }
+
+@keyframes c2BgAnim {
+    0%, 18% { fill: #0b2535; }
+    30%, 72% { fill: #18181f; }
+    94%, 100% { fill: #0b2535; }
+}
+@keyframes c2TxAnim {
+    0%, 18% { fill: #8ecde8; }
+    30%, 72% { fill: #484858; }
+    94%, 100% { fill: #8ecde8; }
+}
+@keyframes c2RingAnim {
+    0%, 18% { opacity: 1; }
+    30%, 72% { opacity: 0; }
+    94%, 100% { opacity: 1; }
+}
+@keyframes c2ToastAnim {
+    0%, 28% { opacity: 0; }
+    40%, 62% { opacity: 0.95; }
+    76%, 100% { opacity: 0; }
+}
+@keyframes c2ToastTextAnim {
+    0%, 28% { opacity: 0; }
+    40%, 62% { opacity: 1; }
+    76%, 100% { opacity: 0; }
+}
+
+.c3-bg-r1, .c3-bg-r2, .c3-bg-r3, .c3-bg-r4, .c3-bg-r5 { fill: #18181f; }
+.c3-tx-r1, .c3-tx-r2, .c3-tx-r3, .c3-tx-r4, .c3-tx-r5 { fill: #484858; }
+.c3-ring-r1, .c3-ring-r2, .c3-ring-r3, .c3-ring-r4, .c3-ring-r5 { opacity: 0; }
+
+.c3-bg-r1 { animation: c3BgAnim 5.5s ease-in-out infinite; }
+.c3-bg-r2 { animation: c3BgAnim 5.5s ease-in-out 0.07s infinite; }
+.c3-bg-r3 { animation: c3BgAnim 5.5s ease-in-out 0.14s infinite; }
+.c3-bg-r4 { animation: c3BgAnim 5.5s ease-in-out 0.21s infinite; }
+.c3-bg-r5 { animation: c3BgAnim 5.5s ease-in-out 0.28s infinite; }
+
+.c3-tx-r1 { animation: c3TxAnim 5.5s ease-in-out infinite; }
+.c3-tx-r2 { animation: c3TxAnim 5.5s ease-in-out 0.07s infinite; }
+.c3-tx-r3 { animation: c3TxAnim 5.5s ease-in-out 0.14s infinite; }
+.c3-tx-r4 { animation: c3TxAnim 5.5s ease-in-out 0.21s infinite; }
+.c3-tx-r5 { animation: c3TxAnim 5.5s ease-in-out 0.28s infinite; }
+
+.c3-ring-r1 { animation: c3RingAnim 5.5s ease-in-out infinite; }
+.c3-ring-r2 { animation: c3RingAnim 5.5s ease-in-out 0.07s infinite; }
+.c3-ring-r3 { animation: c3RingAnim 5.5s ease-in-out 0.14s infinite; }
+.c3-ring-r4 { animation: c3RingAnim 5.5s ease-in-out 0.21s infinite; }
+.c3-ring-r5 { animation: c3RingAnim 5.5s ease-in-out 0.28s infinite; }
+
+@keyframes c3BgAnim {
+    0%, 28% { fill: #18181f; }
+    40%, 78% { fill: #1c1c30; }
+    92%, 100% { fill: #18181f; }
+}
+@keyframes c3TxAnim {
+    0%, 28% { fill: #484858; }
+    40%, 78% { fill: #9090c8; }
+    92%, 100% { fill: #484858; }
+}
+@keyframes c3RingAnim {
+    0%, 28% { opacity: 0; }
+    40%, 78% { opacity: 1; }
+    92%, 100% { opacity: 0; }
+}
+
+/* ============================================================
+   USE CASES
+   ============================================================ */
+
+.use-cases-header {
+    text-align: center;
+    margin-bottom: 64px;
+}
+
+.nothing-title {
+    font-size: clamp(28px, 5vw, 56px);
+    font-weight: 600;
+    margin-bottom: var(--spacing-md);
+    color: var(--color-primary);
+    letter-spacing: -0.03em;
+    cursor: default;
+}
+
+.ntl-char {
+    display: inline;
+    transition: color 0.15s ease;
+}
+
+
+
+.ntl-char--active {
+    color: var(--spark-color);
+}
+
+.use-cases-subtitle {
+    font-size: clamp(16px, 2vw, 24px);
+    color: var(--color-secondary);
+    font-weight: 400;
+    margin: 0;
+}
+
+
+.cursor {
+    display: inline-block;
+    
+    height: 0.75em;
+    background: currentColor;
+  
+    vertical-align: -0.08em;
+    animation: blink 1s infinite;
+}
+
+
+
+
+
+
+
+
+
+
+/* ============================================================
+   BUTTONS
+   ============================================================ */
+
+.button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 14px 28px;
+    border-radius: 40px;
+    font-size: var(--font-size-base);
+    font-weight: 500;
+    cursor: pointer;
+    transition: transform 0.25s ease, opacity 0.25s ease, background 0.25s ease, box-shadow 0.25s ease;
+    border: none;
+    white-space: nowrap;
+    position: relative;
+    overflow: hidden;
+}
+
+.button-primary {
+    background: var(--color-primary);
+    color: #ffffff;
+}
+
+.button-primary:hover {
+    opacity: 0.9;
+    box-shadow: var(--shadow-md);
+    color: #ffffff;
+}
+
+.button-secondary {
+    background: #e8e8ed;
+    color: var(--color-primary);
+}
+
+.button-secondary:hover {
+    background: #dcdce0;
+    transform: translateY(-1px);
+}
+
+.button-large {
+    padding: 16px 44px;
+    font-size: var(--font-size-lg);
+}
+
+.ripple {
+    position: absolute;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.24);
+    transform: scale(0);
+    animation: rippleEffect 0.6s linear;
+    pointer-events: none;
+}
+
+@keyframes rippleEffect {
+    to {
+        transform: scale(4);
+        opacity: 0;
+    }
+}
+
+/* ============================================================
+   FOOTER
+   ============================================================ */
+
+.footer {
+    padding: 80px 0 40px;
+    background: var(--color-background);
+    text-align: center;
+    margin-top: auto;
+}
+
+.footer-handwritten {
+    font-family: 'Caveat', cursive;
+    font-size: 36px;
+    color: var(--color-primary);
+    margin-bottom: 40px;
+    transform: rotate(-2deg);
+    display: inline-block;
+}
+
+.footer-minimal {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 24px;
+    color: var(--color-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.footer-brand,
+.footer-meta {
+    margin: 0;
+}
+
+
+.footer-links {
+    display: flex;
+    gap: 20px; /* Меняйте это значение, чтобы регулировать расстояние */
+}
+
+.footer-links a {
+    color: inherit; /* Чтобы ссылки наследовали цвет текста родителя */
+    text-decoration: none; /* Убирает подчеркивание, если необходимо */
+}
+
+
+
+
+
+
+
+
+
+
+
+
+/* ============================================================
+   ANIMATIONS
+   ============================================================ */
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(18px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.fade-in-up {
+    opacity: 0;
+    animation: fadeInUp 0.8s ease-out forwards;
+    animation-delay: var(--delay, 0s);
+}
+
+/* ============================================================
+   RESPONSIVE — Tablet (≤960px)
+   ============================================================ */
+
+@media (max-width: 960px) {
+    .feature-row {
+        grid-template-columns: 1fr;
+        gap: 32px;
+        padding: 56px 0;
+        text-align: center;
+    }
+
+    .feature-row-text {
+        max-width: 560px;
+        margin: 0 auto;
+        margin-bottom: 0;
+    }
+
+    .feature-row-visual {
+        max-width: 560px;
+        margin: 0 auto;
+        width: 100%;
+    }
+
+    .container {
+        padding: 0 var(--spacing-lg);
+    }
+}
+
+/* ============================================================
+   RESPONSIVE — Mobile Large (≤768px)
+   ============================================================ */
+
+@media (max-width: 768px) {
+    :root {
+        --spacing-5xl: 56px;
+    }
+
+    .hero {
+        padding: 72px 0 48px;
+    }
+
+    .button-group {
+        flex-direction: column;
+        align-items: center;
+        margin-bottom: 40px;
+    }
+
+    .button {
+        width: 100%;
+        max-width: 320px;
+    }
+
+    .footer-minimal {
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+        text-align: center;
+    }
+
+    .feature-row {
+        padding: 40px 0;
+    }
+}
+
+/* ============================================================
+   RESPONSIVE — iPhone / Small Mobile (≤480px)
+   ============================================================ */
+
+@media (max-width: 480px) {
+    :root {
+        --spacing-5xl: 48px;
+        --spacing-xl: 20px;
+    }
+
+    .hero {
+        padding: 60px 0 40px;
+    }
+
+    .container {
+        padding: 0 20px;
+    }
+
+    /* FIX: На маленьких экранах pill центрируем и делаем не шире экрана */
+    .price-pill {
+        padding: 6px 6px 6px 18px;
+    }
+
+    .price-pill-label {
+        margin-right: 16px;
+    }
+
+    .feature-row {
+        gap: 24px;
+        padding: 36px 0;
+    }
+
+    .feature-card-dark {
+        border-radius: var(--radius-xl);
+    }
+
+    .footer {
+        padding: 48px 0 32px;
+    }
+
+    .nothing-title {
+        letter-spacing: -0.02em;
+    }
+}
+
+
+@media (max-width: 414px) {
+    .price-pill {
+        padding: 6px 8px 6px 18px;
+    }
+    .price-pill-btn {
+        font-size: 15px;
+        padding: 10px 22px;
+    }
+}
+
+
+
+
+
+
+
+/* ============================================================
+   RESPONSIVE — iPhone SE / Very Small (≤375px)
+   ============================================================ */
+
+@media (max-width: 375px) {
+    .container {
+        padding: 0 16px;
+    }
+
+    .hero {
+        padding: 52px 0 36px;
+    }
+
+    .price-pill {
+        padding: 5px 5px 5px 14px;
+    }
+
+    .price-pill-label {
+        font-size: 14px;
+        margin-right: 12px;
+    }
+
+.price-pill-btn {
+    font-size: 13px;
+    padding: 9px 18px;
+}
+}
+
+/* ============================================================
+   iOS SAFARI FIXES
+   ============================================================ */
+
+/* Prevents tap highlight flash on iOS */
+a, button {
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* Safe area insets for iPhone X+ notch / home indicator */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+    .footer {
+        padding-bottom: calc(40px + env(safe-area-inset-bottom));
+    }
+
+    body {
+        padding-left: env(safe-area-inset-left);
+        padding-right: env(safe-area-inset-right);
+    }
+}
+
+
+@keyframes blink {
+    50% {
+        opacity: 0;
+    }
+}
