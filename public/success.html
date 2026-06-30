@@ -900,6 +900,11 @@ async function doActivate() {
     return;
   }
 
+  if (!/^dev-[0-9a-f]+$/i.test(device)) {
+    showActivateError('Invalid Device ID. Copy it exactly from the iLabels panel inside After Effects — it should look like "dev-3f8a91c".');
+    return;
+  }
+
   btn.disabled = true;
   btn.textContent = 'Checking…';
 

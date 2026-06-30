@@ -171,6 +171,10 @@ async function activate(request, env) {
   const { license, device } = await request.json().catch(() => ({}));
   if (!license || !device) return json({ success: false, error: 'Missing fields' }, 400);
 
+  if (!/^dev-[0-9a-f]+$/i.test(String(device).trim())) {
+    return json({ success: false, error: 'Invalid Device ID format. Copy it exactly from the iLabels panel inside After Effects.' }, 400);
+  }
+
   const key = String(license).trim().toUpperCase();
   const raw = await env.KV.get(`license:${key}`);
   if (!raw) return json({ success: false, error: 'License not found' });
