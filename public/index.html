@@ -6,7 +6,6 @@
     <meta name="description" content="iLabels - Label-based selection for After Effects">
     <title>iLabels - After Effects Plugin</title>
     <link rel="stylesheet" href="styles.css">
-    <link rel="icon" type="image/png" href="icon.png">
     <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500&display=swap" rel="stylesheet">
 </head>
 <body>
@@ -118,6 +117,18 @@
 <script>
 (function () {
     var API = 'https://ilabels-api.iosflowzy.workers.dev';
+
+    // Показываем сообщение если вернулись после неудачной/отменённой оплаты
+    var params = new URLSearchParams(window.location.search);
+    if (params.get('payment') === 'failed' || params.get('payment') === 'cancelled') {
+        var msg = document.createElement('div');
+        msg.style.cssText = 'position:fixed;top:24px;left:50%;transform:translateX(-50%);background:#1a1a1a;color:#fff;padding:14px 24px;border-radius:12px;font-size:14px;z-index:9999;box-shadow:0 4px 24px rgba(0,0,0,0.18);';
+        msg.textContent = 'Payment was not completed. You can try again.';
+        document.body.appendChild(msg);
+        setTimeout(function () { msg.remove(); }, 6000);
+        window.history.replaceState({}, '', window.location.pathname);
+    }
+
     var btn = document.getElementById('buyBtn');
     if (!btn) return;
 
